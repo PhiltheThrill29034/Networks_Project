@@ -1,0 +1,4 @@
+object_id: Object_01;
+description: "expensive car with a big wing"; //"a description for a specific object"
+start_bid: 10; //"a number for a volume"
+auction_duration: 5; //"time in sec"
