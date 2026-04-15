@@ -8,6 +8,8 @@ import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.Random;
 
+import shared.models.AuctionItem;
+
 
 public class ClientHandler implements Runnable {
     
@@ -29,12 +31,12 @@ public class ClientHandler implements Runnable {
             String message;
             while ((message = in.readLine())!=null){
 
-                handleMessage(message,out);
+                handleMessage(message,out); //handle the message of the peer/bidder
                 
             }
 
         } catch (IOException e){
-            System.err.println("ERROR lost connection to client.");
+            System.err.println("[ERROR] lost connection to client.");
         }
     }
     
@@ -45,10 +47,12 @@ public class ClientHandler implements Runnable {
             String[] parts = message.split("\\|");
             
             
+            
             switch (parts[0]){
                 case "REGISTER" ->  response = handleRegister(parts);
-                case "LOGIN" -> handleLogin(parts);
-                case "REQUEST_AUCTION" -> getAuctionRequest(parts);
+                case "LOGIN" -> response = handleLogin(parts);
+                case "REQUEST_AUCTION" -> response = getAuctionRequest(parts);
+                case "LOGOUT" -> response = handleLogout(parts);
             }
         } catch (IllegalArgumentException e){
             response = e.getMessage();
@@ -58,6 +62,8 @@ public class ClientHandler implements Runnable {
 
         out.println(response);
     }
+
+    
 
     
 
@@ -81,7 +87,7 @@ public class ClientHandler implements Runnable {
     private String handleLogin(String[] parts){
 
         if (parts.length<3){
-            throw new IllegalArgumentException("Invalid command format.");
+            throw new IllegalArgumentException("[ERROR]|Invalid command format, missing data");
         }
 
         String username = parts[1];
@@ -98,7 +104,8 @@ public class ClientHandler implements Runnable {
                 user.getSellerCount(),
                 user.getBidderCount()
             );
-            if (server.addActiveSession(newSession)){
+            if (!server.isLoggedIn(username)){
+                server.addActiveSession(newSession);
                 return "SUCCESS|"+tokenId;
             } else {
                 return "[ERROR]|Already logged in";
@@ -115,8 +122,8 @@ public class ClientHandler implements Runnable {
             throw new IllegalArgumentException("[ERROR]|Invalid command format for auction request");
         }
 
-        String tokenId = parts[1];
-        ActivePeer active = server.getActivePeer(tokenId);
+        String tokenId = parts[1]; 
+        ActivePeer active = server.getActivePeer(tokenId); //check if peer is active (logged in)
         if (active==null){
             return "[ERROR]|Required login";
         }
@@ -136,6 +143,23 @@ public class ClientHandler implements Runnable {
 
         server.updateConnectionInfo(active, ip, port);
         AuctionItem item = new AuctionItem(tokenId,objectId, desc, startBid, duration);
+        server.addToAuctionQueue(item);
+        return "[SUCCESS]|Auction request OK";
 
+    }
+
+    private String handleLogout(String[] parts) {
+        //request format: LOGOUT|tokenid
+        if (parts.length<2){
+            throw new IllegalArgumentException("[ERROR}|Invalid command format for LOGOUT, missing token ID");
+        }
+        String tokenId = parts[1];
+        ActivePeer peer = server.getActivePeer(tokenId);
+        if (peer==null){
+            return "[ERROR]|User is not logged in.";
+        }
+
+        server.removePeer(tokenId);
+        return "[SUCCESS]|Logged out successfully";
     }
 }

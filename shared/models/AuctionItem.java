@@ -1,4 +1,4 @@
-package server;
+package shared.models;
 
 public class AuctionItem {
     String tokenId;
@@ -7,7 +7,7 @@ public class AuctionItem {
     double startBid;
     int duration;
 
-    AuctionItem(String tokenId,String itemId, String desc, double startBid,int duration)
+    public AuctionItem(String tokenId,String itemId, String desc, double startBid,int duration)
     {
         this.tokenId=tokenId;
         this.itemId=itemId;
