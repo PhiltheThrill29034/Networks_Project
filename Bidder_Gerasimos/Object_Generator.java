@@ -10,18 +10,18 @@ import java.nio.file.Paths;
 
 public class Object_Generator extends Thread {
 
-    String biddersName;
+    private Bidder bidder;
 
-    Object_Generator(String name) {
-        this.biddersName = name;
+    Object_Generator(Bidder bidder) {
+        this.bidder = bidder;
     }
 
-    // Παραγουμε τα αρχεια Object_00.txt με τα metadata καθε RAND*120 και τα αποθηκευει στον υποφακελο καθε Bidder στο shared_directory    
+    // Παράγουμε τα αρχεία Object_00.txt με τα metadata κάθε RAND*120 και τα αποθηκέυουμε στον υποφάκελο κάθε Bidder στο shared_directory    
     @Override
     public void run() {
         
         String mainFolderName = "shared_directory"; 
-        String subFolderName = biddersName + " objects";
+        String subFolderName = bidder.getName() + "_objects";
         
         Random rand = new Random();
 
@@ -31,7 +31,7 @@ public class Object_Generator extends Thread {
         boolean folderCreated = false;
 
         // Δημιουργούμε το φάκελο, και σε περίπτωση που αποτύχει, ξαναπροσπαθούμε
-        while(!folderCreated) {
+        while (!folderCreated) {
             try {
                 if (!Files.exists(subFolderPath)) { // Ελέγχουμε αν υπάρχει ήδη τέτοιος φάκελος στο συγκεκριμένο path
                     Files.createDirectories(subFolderPath);
@@ -39,13 +39,13 @@ public class Object_Generator extends Thread {
                 }
                 folderCreated = true; // Αν έχει φτάσει εδώ το Thread σημαίνει ότι είτε υπάρχει ήδη ο φάκελος, είτε ότι φτίαχτηκε με επιτυχία 
 
-            } catch(IOException e) {
-                System.err.println("[Object Generator] Failed to create subfolder for Bidder: " + biddersName + ".");
+            } catch (IOException e) {
+                System.err.println("[Object Generator] Failed to create subfolder for Bidder: " + bidder.getName() + ".");
                 
                 // «Κοιμίζουμε» το Thread και ξαναπροσπαθούμε
                 try {
                     Thread.sleep(5000); // 5 δευτερόλεπτα
-                } catch(InterruptedException ie) {
+                } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break; // Οταν το Thread διακόπτεται(interrupted), θα πρέπει να σταματάει και η λειτουργία του
                 }
@@ -53,8 +53,7 @@ public class Object_Generator extends Thread {
         }   
 
         // Παράγουμε τα Objects
-        while(true) { // Χρησιμοποιούμε το true γιατί θέλουμε να τρέχει σε όλη τη διάρκεια της ύπαρξης του Bidder
-            
+        while (true) { // Χρησιμοποιούμε το true γιατί θέλουμε να τρέχει σε όλη τη διάρκεια της ύπαρξης του Bidder   
             try {
                 double random = rand.nextDouble();
                 long waitTime = (long) (random * 120);
@@ -65,12 +64,12 @@ public class Object_Generator extends Thread {
                 objectCount++;
                 createObject(subFolderPath, objectCount, random);
 
-            } catch(InterruptedException ie) {
+            } catch (InterruptedException ie) {
                 System.err.println("[Object Generator] The Object Generator was interrupted.");
                 Thread.currentThread().interrupt(); // Γινεται interrupt συνήθως από το κύριο πρόγραμμα
                 break;
 
-            } catch(IOException ioe) {
+            } catch (IOException ioe) {
                 System.err.println("[Object Generator] Failed to create file in folder. Details: " + ioe.getMessage());
             }
 
@@ -103,6 +102,8 @@ public class Object_Generator extends Thread {
 
         Files.write(filePath, fileContent.getBytes());
 
+        // Ενημερώνουμε το Bidder και αυτος με τη σειρά του τον Auction server για τη δημιουργια του νέου Object
+        bidder.newObjectCreated(objectId, description, startBid, auctionDuration);
     }
 
 }
