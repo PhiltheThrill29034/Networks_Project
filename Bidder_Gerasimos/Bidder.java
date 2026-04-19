@@ -9,17 +9,11 @@ import java.util.Scanner;
 
 import java.net.Socket;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import java.util.Random;
-
-import java.util.stream.Stream;
 
 
 public class Bidder { // Το αρχείο που τρέχουμε για να αρχίσουμε την δημοπρασία με την συμμετοχή των Bidders
@@ -151,9 +145,6 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
             // Ξεκινάμε την παραγωγή των Object_00.txt αρχείων
             objectGenerator = new Object_Generator(this); // Δεν χρειάζεται κάποιο port, γιατί το Thread απλά θα προσθέτει αρχεία σε φάκελο
             objectGenerator.start();
-
-            // Ενημερώνουμε τον Auction server για τα object του Bidder
-            requestAuction();
             
             // Ξεκινάμε το χρονόμετρο του Auction για τη μεθοδο getCurrentAuction
             startAuctionTimer();
@@ -312,65 +303,25 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
             }
         }
     }
-    
 
-    private void requestAuction() {
-        // Δημιουργούμε το Path μέχρι τα object του Bidder
-        Path folderPath = Paths.get("shared_directory", this.biddersName + "_objects");
-        System.out.println("[Bidder] Scanning for " + this.biddersName + " objects.");
+    // private String extractValue(String text, String key) throws Exception {
+    //     try {
+    //         // Ψάχνουμε που ξεκινάει το subString του "key:", και προσθέτουμε το μήκος του + το κενό ανάμεσα αυτού και του  
+    //         int start = text.indexOf(key + ":") + key.length() + 1;
 
-        // Ελέγχουμε αν το Path υπάρχει και αν όντως είναι φάκελος
-        if (!Files.exists(folderPath) || !Files.isDirectory(folderPath)) {
-            System.err.println("[Bidder] Directory for " + this.biddersName + " objects was not found.");
-            return;
-        }
+    //         // Ψάχνουμε που τελείωνει το subString που θέλουμε, ξεκινώντας την αναζήτηση από το start που βρήκαμε
+    //         int end = text.indexOf(";", start);
+    //         // Ορίζουμε το subString στο value, διαγράφοντας τα κενά και εισαγωγικά
+    //         String value = text.substring(start, end).trim().replace("\"", "");
 
-        // Ξεκινάμε την αναζήτηση
-        // Το Stream<Path> filePaths είναι κατά κάποιο τρόπο είναι σαν ένα Araya από τα files, αλλά πολύ καλύτερο
-        try (Stream<Path> filePaths = Files.list(folderPath)) {
-            // Διώχνουμε όλα τα files που δεν τελειώνουν σε .txt
-            filePaths.filter(p -> p.toString().endsWith(".txt"))
-            .forEach(path -> {
-                                try {
-                                    // Διαβάζουμε το αρχείο
-                                    String content = Files.readString(path);
+    //         return value;
+    //     } catch (Exception e) {
+    //         throw new Exception();
+    //     }
 
-                                    // Βγάζουμε τα δεδομένα από το String
-                                    String objectId = extractValue(content, "object_id");
-                                    String description = extractValue(content, "description");
-                                    double startBid = Double.parseDouble(extractValue(content, "start_bid"));
-                                    int auctionDuration = Integer.parseInt(extractValue(content, "auction_duration"));
-                                    
-                                    // Το στέλνουμε στο Auction server
-                                    newObjectCreated(objectId, description, startBid, auctionDuration);
-                                
-                                } catch (Exception e) {
-                                    System.err.println("[Bidder] Failed to proccess " + this.biddersName + " object file.");
-                                }
-                             });
-        } catch (IOException e) {
-            System.err.println("[Bidder] Failed to access " + this.biddersName + " object file.");
-        }
-    }
+    // }
 
-    private String extractValue(String text, String key) throws Exception {
-        try {
-            // Ψάχνουμε που ξεκινάει το subString του "key:", και προσθέτουμε το μήκος του + το κενό ανάμεσα αυτού και του  
-            int start = text.indexOf(key + ":") + key.length() + 1;
-
-            // Ψάχνουμε που τελείωνει το subString που θέλουμε, ξεκινώντας την αναζήτηση από το start που βρήκαμε
-            int end = text.indexOf(";", start);
-            // Ορίζουμε το subString στο value, διαγράφοντας τα κενά και εισαγωγικά
-            String value = text.substring(start, end).trim().replace("\"", "");
-
-            return value;
-        } catch (Exception e) {
-            throw new Exception();
-        }
-
-    }
-
-    public void newObjectCreated(String objectId, String description, double startBid, int auctionDuration) {
+    public void requestAuction(String objectId, String description, double startBid, int auctionDuration) {
         if (this.tokenId != null && out != null) {
             String message = "REQUEST_AUCTION|" + this.tokenId + "|localhost|"  + b2bServerPort + "|" + 
                           objectId + "|" + description + "|" + startBid + "|" + auctionDuration;

@@ -103,7 +103,7 @@ public class Object_Generator extends Thread {
         Files.write(filePath, fileContent.getBytes());
 
         // Ενημερώνουμε το Bidder και αυτος με τη σειρά του τον Auction server για τη δημιουργια του νέου Object
-        bidder.newObjectCreated(objectId, description, startBid, auctionDuration);
+        bidder.requestAuction(objectId, description, startBid, auctionDuration);
     }
 
 }
