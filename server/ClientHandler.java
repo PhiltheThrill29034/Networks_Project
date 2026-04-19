@@ -76,7 +76,7 @@ public class ClientHandler implements Runnable {
         String password = parts[2]; 
         UserProfile newUser = new UserProfile(username, password);
         if (server.registerUser(newUser)) {
-            return "[REGISTER_OK]|Welcome to the auction";
+            return "REGISTER_OK|Welcome to the auction";
         } else {
             return "[ERROR]|Username already taken";
         }
@@ -106,7 +106,7 @@ public class ClientHandler implements Runnable {
             );
             if (!server.isLoggedIn(username)){
                 server.addActiveSession(newSession);
-                return "SUCCESS|"+tokenId;
+                return "LOGIN_OK|"+tokenId;
             } else {
                 return "[ERROR]|Already logged in";
             }
@@ -144,7 +144,7 @@ public class ClientHandler implements Runnable {
         server.updateConnectionInfo(active, ip, port);
         AuctionItem item = new AuctionItem(tokenId,objectId, desc, startBid, duration);
         server.addToAuctionQueue(item);
-        return "[SUCCESS]|Auction request OK";
+        return "AUCTION_REQUEST_OK|Auction request OK";
 
     }
 
@@ -160,6 +160,6 @@ public class ClientHandler implements Runnable {
         }
 
         server.removePeer(tokenId);
-        return "[SUCCESS]|Logged out successfully";
+        return "LOGOUT_OK|Logged out successfully";
     }
 }

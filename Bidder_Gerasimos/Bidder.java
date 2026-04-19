@@ -68,7 +68,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                     String command = parts[0];
 
                     switch (command) {
-                        case "[SUCCESS]":
+                        case "LOGOUT_OK":
                             // Διαχειριζόμαστ την περίπτωση του "[SUCCESS]|Logout..."
                             if (parts[1].contains("Logged out")) {
                                 System.out.println("[Bidder] " + biddersName + " logout request confirmed by Auction server");
@@ -217,7 +217,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
             }
             // Επιβεβαιώνουμε την επιτυχής εγγραφή στο Auction Server
             if (message.length == 2) {
-                if (message[0].equals("[REGISTER_OK]")) {
+                if (message[0].equals("REGISTER_OK")) {
                     System.out.println("[Bidder] Registered successfully to the Auction server");
                     registered = true;
                 } else if (message[0].equals("[ERROR]")) {
@@ -257,8 +257,8 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                 continue;
             }
             if (message.length == 2) {
-                if (message[0].equals("SUCCESS")) {
-                    System.out.println("[Bidde] Logged in successfully to Auction server.");
+                if (message[0].equals("LOGIN_OK")) {
+                    System.out.println("[Bidder] Logged in successfully to Auction server.");
                     this.tokenId = message[1];
                     loggedIn = true;
                 } else if (message[0].equals("[ERROR]")) {
@@ -326,7 +326,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
         }
 
         // Ξεκινάμε την αναζήτηση
-        // Το Stream<Path> filePaths είναι κατά κάποιο τρόπο είναι σαν ένα Araya από τα files, αλλά πολύ καλύτερο
+        // Το Stream<Path> filePaths είναι κατά κάποιο τρόπο είναι σαν ένα Array από files. Μας αφήνει να επεξεργαστούμε και να εφαρμόσουμε διάφορες μεθόδους στα στοιχεία του φακέλου ένα ένα.
         try (Stream<Path> filePaths = Files.list(folderPath)) {
             // Διώχνουμε όλα τα files που δεν τελειώνουν σε .txt
             filePaths.filter(p -> p.toString().endsWith(".txt"))

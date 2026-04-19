@@ -95,10 +95,12 @@ public class AuctionServer{
     }
 
     public boolean isLoggedIn(String username){
+        //check if any of the current active users match the given username.
+        // if yes, it means they are already logged in.
         return activeSessions.values()
                             .stream()
-                            .anyMatch(peer -> peer.getUsername().equals(username)) ; //check if any of the current active users match the given username.
-                                                                                    // if yes, it means they are already logged in.
+                            .anyMatch(peer -> peer.getUsername().equals(username)) ; 
+                            
 
     }
 
