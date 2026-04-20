@@ -104,5 +104,56 @@ public class AuctionServer{
 
     }
 
-    
+    private AuctionItem currentAuction = null;
+    private long auctionEndTime = 0;
+    private String currentHighestBidderToken = null;
+
+    public void startAuctionManager() {
+    new Thread(() -> {
+        while (true) {
+            synchronized (this) {
+                if (currentAuction == null && !auctionQueue.isEmpty()) {
+                    currentAuction = auctionQueue.poll();
+                    auctionEndTime = System.currentTimeMillis() + (currentAuction.getDuration() * 1000L);
+                    currentHighestBidderToken = null;
+                    System.out.println("[SERVER] Νέα δημοπρασία: " + currentAuction.getObjectId());
+                }
+
+                if (currentAuction != null) {
+                    if (!activeSessions.containsKey(currentAuction.getSellerTokenId())) {
+                        System.out.println("[SERVER] Ο πωλητής αποσυνδέθηκε. Ακύρωση: " + currentAuction.getObjectId());
+                        currentAuction = null; 
+                    } else if (System.currentTimeMillis() >= auctionEndTime) {
+                        finalizeAuction();
+                    }
+                }
+            }
+            try { Thread.sleep(1000); } catch (InterruptedException e) { break; }
+        }
+    }).start();
+
+    private void finalizeAuction() {
+    System.out.println("[SERVER] Η δημοπρασία για το " + currentAuction.getObjectId() + " έληξε.");
+    currentAuction = null;
+    }
+
+    public synchronized String getCurrentAuctionResponse() {
+    if (currentAuction == null) return "NO_ACTIVE_AUCTION";
+    return "CURRENT_AUCTION|" + currentAuction.getObjectId() + "|" + currentAuction.getDescription();
+    }
+
+    public synchronized String getAuctionDetailsResponse() {
+    if (currentAuction == null) return "[ERROR]|No active auction";
+    return "AUCTION_DETAILS|" + currentAuction.getSellerTokenId() + "|" + currentAuction.getHighestBid();
+    }
+
+    public synchronized String processBid(String tokenId, double amount) {
+    if (currentAuction == null) return "[ERROR]|No active auction";
+    if (amount > currentAuction.getHighestBid()) {
+        currentAuction.setHighestBid(amount);
+        currentHighestBidderToken = tokenId;
+        return "BID_OK|" + amount;
+    }
+    return "[ERROR]|Bid too low";
+    }
 }

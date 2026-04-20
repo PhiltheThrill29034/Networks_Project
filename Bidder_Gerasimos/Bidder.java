@@ -86,11 +86,30 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                             break;
 
                         case "NEW_BID":
-                            // υλοποίηση placeBid 
+                            // υλοποίηση placeBid
+                            String status = parts[1];
+                            double bidAmount = Double.parseDouble(parts[2]);
+                            String objId = parts[3];
+
+                            if (status.equals("OK")) {
+                                System.out.println("[SUCCESS] Η προσφορά σας των " + bidAmount + "€ για το " + objId + " έγινε δεκτή!");
+                                } else {
+                                    System.out.println("[REJECTED] Η προσφορά των " + bidAmount + "€ είναι πολύ χαμηλή. Τρέχουσα τιμή: " + parts[4]);
+                                }
                             break;
 
                         case "AUCTION_FINISHED":
                             // ελέγχουμε αν κερδίσαμε εμείς την δημοπρασία, και αν ναι, ξεκινάμε το B2B
+                            String winnerToken = parts[1];
+                            String objId = parts[2];
+                            
+                            if (winnerToken.equals(this.tokenId)) {
+                                System.out.println("[SUCCESS] I WON the auction for " + objId + "!");
+                                String sellerIp = parts[3];
+                                int sellerPort = Integer.parseInt(parts[4]);
+                                
+                                startTransactionAsBuyer(objId, sellerIp, sellerPort);
+                            }
                             break;
 
                         case "[ERROR]":
@@ -342,12 +361,38 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
 
     }
 
-    // !!!!!!!!!!!!!!!!!!!   ΕΔΩ ΓΙΝΕΤΑΙ ΤΟ PLACE_BID
+    //ΕΔΩ ΓΙΝΕΤΑΙ ΤΟ PLACE_BID
     private void handleAuctionDetails(String auctionBiddersTokenId, double auctionObjectHighestBid, int auctionTimeLeft) {
         System.out.println("[Bidder] " + this.biddersName + " received all the details of auction object (Seller: " 
         + auctionBiddersTokenId + ", Highest bid: " + auctionObjectHighestBid + ", Time left: " + auctionTimeLeft + ").");
 
-        // !!!!!!!!! ΕΔΩ ΓΙΝΕΤΑΙ ΤΟ placeBid KAI Ο,ΤΙΔΗΠΟΤΕ ΑΛΛΟ ΧΡΕΙΑΖΕΤΑΙ ΓΙΑ ΤΗΝ B2B ΣΥΝΔΕΣΗ
+        //ΕΔΩ ΓΙΝΕΤΑΙ ΤΟ placeBid KAI Ο,ΤΙΔΗΠΟΤΕ ΑΛΛΟ ΧΡΕΙΑΖΕΤΑΙ ΓΙΑ ΤΗΝ B2B ΣΥΝΔΕΣΗ
+        double randVal = new Random().nextDouble();
+        double myNewBid = auctionObjectHighestBid * (1 + (randVal / 10.0));
+    
+        myNewBid = Math.round(myNewBid * 100.0) / 100.0;
+
+        System.out.println("[Bidder] " + this.biddersName + " placing bid: " + myNewBid);
+    
+        out.println("PLACE_BID|" + this.tokenId + "|" + myNewBid);
+    }
+
+    private void startTransactionAsBuyer(String objectId, String ip, int port) {
+    try (Socket b2bSocket = new Socket(ip, port);
+         PrintWriter b2bOut = new PrintWriter(b2bSocket.getOutputStream(), true);
+         BufferedReader b2bIn = new BufferedReader(new InputStreamReader(b2bSocket.getInputStream()))) {
+        
+        b2bOut.println("BUY_OBJECT|" + objectId);
+        
+        String metadata = b2bIn.readLine();
+        if (metadata != null) {
+            Path path = Paths.get("shared_directory", this.biddersName + "_objects", objectId + ".txt");
+            Files.write(path, metadata.getBytes());
+            System.out.println("[B2B] Transaction complete. Saved: " + objectId);
+        }
+        } catch (IOException e) {
+            System.err.println("[B2B] Transaction failed: " + e.getMessage());
+        }
     }
 
 

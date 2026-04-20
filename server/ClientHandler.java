@@ -162,4 +162,17 @@ public class ClientHandler implements Runnable {
         server.removePeer(tokenId);
         return "LOGOUT_OK|Logged out successfully";
     }
+
+    switch (parts[0]) {
+    case "REGISTER" -> response = handleRegister(parts);
+    case "LOGIN" -> response = handleLogin(parts);
+    case "REQUEST_AUCTION" -> response = getAuctionRequest(parts);
+    case "LOGOUT" -> response = handleLogout(parts);
+    case "GET_CURRENT_AUCTION" -> response = server.getCurrentAuctionResponse();
+    case "GET_AUCTION_DETAILS" -> response = server.getAuctionDetailsResponse();
+    case "PLACE_BID" -> {
+        if (parts.length < 3) throw new IllegalArgumentException("Missing bid data");
+        response = server.processBid(parts[1], Double.parseDouble(parts[2]));
+    }
+    }
 }
