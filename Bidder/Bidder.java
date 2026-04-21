@@ -29,6 +29,8 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
 
     private String tokenId;
 
+    private int auctionsSeen;
+
     private final String AUCTION_SERVER_IP = "localhost";
     private final int AUCTION_SERVER_PORT = 5000; 
 
@@ -45,6 +47,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
     private Thread listener;                    //
 
     Bidder(int port, String name, String password) {
+        this.auctionsSeen = 0;
         this.b2bServerPort = port;
         this.biddersName = name;
         this.biddersPassword = password;
@@ -57,21 +60,18 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
 
         @Override
         public void run() {
+            
             try {
-                String inputFromServer = in.readLine();
+                String inputFromServer;
 
-                while (inputFromServer != null) {
+                while ((inputFromServer = in.readLine()) != null) {
 
                     String[] parts = inputFromServer.split("\\|");
                     String command = parts[0];
 
                     switch (command) {
                         case "LOGOUT_OK":
-                            // Διαχειριζόμαστ την περίπτωση του "[SUCCESS]|Logout..."
-                            if (parts[1].contains("Logged out")) {
-                                System.out.println("[Bidder] " + biddersName + " logout request confirmed by Auction server");
-                                // ?? Μηπως χρειαζεται περαιτερω διαχειριση το logout
-                            }
+                            System.out.println("[Bidder] " + biddersName + " logout request confirmed by Auction server");
                             break;
 
                         case "CURRENT_AUCTION":
@@ -85,22 +85,30 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                             // AUCTION_DETAILS|auctionBiddersToken_Id|auctionObjectHighestBid|auctionTimeLeft
                             String auctionBiddersTokenId = parts[1];
                             double auctionObjectHighestBid = Double.parseDouble(parts[2]);
-                            int auctionTimeLeft = Integer.parseInt(parts[3]); 
+                            long auctionTimeLeft = Long.parseLong(parts[3]); 
                             handleAuctionDetails(auctionBiddersTokenId, auctionObjectHighestBid, auctionTimeLeft);
                             break;
 
+                        case "AUCTION_REQUEST_OK":
+                            System.out.println("Auction request accepted.");
+                            break;
+
                         case "NEW_BID":
-                            // NEW_BID|status|bidAmount|objectId|currentHighestBid
+                            // NEW_BID|status|bidAmount|objectId
                             String status = parts[1];
                             double bidAmount = Double.parseDouble(parts[2]);
                             String objId = parts[3];
 
                             if (status.equals("OK")) {
-                                System.out.println("[SUCCESS] Η προσφορά σας των " + bidAmount + "€ για το " + objId + " έγινε δεκτή!");
-                                } else {
-                                    System.out.println("[REJECTED] Η προσφορά των " + bidAmount + "€ είναι πολύ χαμηλή. Τρέχουσα τιμή: " + parts[4]);
-                                }
+                                System.out.println("[SUCCESS][" + getBiddersName() + "] Your bid of " + bidAmount + " for object " + objId + " was accepted!");
+                            } else if (status.equals("ERROR")) {
+                                System.out.println("[REJECTED][" + getBiddersName() + "] Your bid of " + bidAmount + " is too low. Current highest bid is " + parts[2] + ".");
+                            }
                             break;
+
+                        case "NO_ACTIVE_AUCTION":
+                            System.out.println("[Auction] No active auction.");
+                        break;
 
                         case "AUCTION_FINISHED":
                             // ελέγχουμε αν κερδίσαμε εμείς την δημοπρασία, και αν ναι, ξεκινάμε το B2B
@@ -114,13 +122,21 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                                 
                                 startTransactionAsBuyer(objectId, sellerIp, sellerPort);
                             }
+
+                            // Σταματαμε το πρόγραμμα μετά απο ορισμένα Auction
+                            auctionsSeen++;
+                            if (auctionsSeen >= 2) {
+                                System.out.println("[Bidder] " + getBiddersName() + " is exiting...");
+                                logout();
+                                return;
+                            }
                             break;
 
                         case "AUCTION_FINISHED_NO_WINNER":
                             break;
 
                         case "UPDATED_OWNER":
-                            System.out.println("[Bidder]. Ownership was updated successfully.");
+                            System.out.println("[Bidder][" + getBiddersName() + "] Ownership was updated successfully.");
                             break;
                         
                         case "[ERROR]":
@@ -146,7 +162,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
     public void startBidder() { // Ενεργοποιεί όλη τη διαδικασία
 
         // Ξεκινάμε το Thread όπου θα χειρίζεται τις συνδέσεις μεταξύ αυτού και των άλλων Bidder
-        b2bServerThread = new B2B_Server_Thread(b2bServerPort, getName());
+        b2bServerThread = new B2B_Server_Thread(b2bServerPort, getBiddersName());
         b2bServerThread.start();
 
         // Συνδεόμαστε στο Auction Server
@@ -232,19 +248,23 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                     message[0] = response;
                 }
             } else { // Δεν ήρθε απάντηση από τον Auction server
-                System.err.println("[Bidder] No response received from Auction server after registration request.");
+                System.err.println("[Bidder][" + this.biddersName + "] No response received from Auction server after registration request.");
                 continue;
             }
             // Επιβεβαιώνουμε την επιτυχής εγγραφή στο Auction Server
             if (message.length == 2) {
                 if (message[0].equals("REGISTER_OK")) {
-                    System.out.println("[Bidder] Registered successfully to the Auction server");
+                    System.out.println("[Bidder][" + this.biddersName + "] Registered successfully to the Auction server");
                     registered = true;
                 } else if (message[0].equals("[ERROR]")) {
                     
                     if (message[1].startsWith("Username")) {
                         System.out.println("[Bidder]" + this.biddersName + " registration failed. Username already taken. Enter new one: ");
-                        this.biddersName = userInput.nextLine(); 
+                        try {
+                            wait();
+                        } catch (InterruptedException e) { }
+                        this.biddersName = userInput.nextLine();
+                        notifyAll(); 
                     } else if (message[1].startsWith("Unexpected")) {
                         System.err.println("[Bidder] ERROR during " + this.biddersName + " registration.");
                     }
@@ -278,7 +298,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
             }
             if (message.length == 2) {
                 if (message[0].equals("LOGIN_OK")) {
-                    System.out.println("[Bidder] Logged in successfully to Auction server.");
+                    System.out.println("[Bidder][" + this.biddersName + "] Logged in successfully to Auction server.");
                     this.tokenId = message[1];
                     loggedIn = true;
                 } else if (message[0].equals("[ERROR]")) {
@@ -356,7 +376,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
     }
 
     private void handleCurrentAuction(String auctionObjectId, String auctionObjectDescription) {
-        System.out.println("[Auction] Current object: " + auctionObjectId + " - " + auctionObjectDescription);
+        System.out.println("[Auction][" + getBiddersName() + "] Current object: " + auctionObjectId + " - " + auctionObjectDescription);
 
         // Ρίχνουμε το κάλπικο νόμισμα (60% πιθανότητα)
         Random rand = new Random();
@@ -372,7 +392,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
     }
 
     //Receives the current auction details from the Auction Server. Automatically calculates a new bid based on the required formula. Sends the bid to the Server using the "PLACE_BID" protocol.
-    private void handleAuctionDetails(String auctionBiddersTokenId, double auctionObjectHighestBid, int auctionTimeLeft) {
+    private void handleAuctionDetails(String auctionBiddersTokenId, double auctionObjectHighestBid, long auctionTimeLeft) {
         System.out.println("[Bidder] " + this.biddersName + " received all the details of auction object (Seller: " 
         + auctionBiddersTokenId + ", Highest bid: " + auctionObjectHighestBid + ", Time left: " + auctionTimeLeft + ").");
 
@@ -395,7 +415,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
             
             String metadata = b2bIn.readLine();
             if (metadata != null) {
-                Path path = Paths.get("shared_directory", this.biddersName + "_objects", objectId + ".txt");
+                Path path = Paths.get("shared_directory", this.biddersName + "_objects", objectId + "_auctioned.txt");
                 Files.write(path, metadata.getBytes());
                 b2bOut.println("[OK]");
                 System.out.println("[B2B] Transaction complete. Saved: " + objectId);
@@ -418,7 +438,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
     } 
 
 
-    public String getName() {
+    public String getBiddersName() {
         return this.biddersName;
     }
 

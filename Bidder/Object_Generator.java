@@ -21,7 +21,7 @@ public class Object_Generator extends Thread {
     public void run() {
         
         String mainFolderName = "shared_directory"; 
-        String subFolderName = bidder.getName() + "_objects";
+        String subFolderName = bidder.getBiddersName() + "_objects";
         
         Random rand = new Random();
 
@@ -40,7 +40,7 @@ public class Object_Generator extends Thread {
                 folderCreated = true; // Αν έχει φτάσει εδώ το Thread σημαίνει ότι είτε υπάρχει ήδη ο φάκελος, είτε ότι φτίαχτηκε με επιτυχία 
 
             } catch (IOException e) {
-                System.err.println("[Object Generator] Failed to create subfolder for Bidder: " + bidder.getName() + ".");
+                System.err.println("[Object Generator] Failed to create subfolder for Bidder: " + bidder.getBiddersName() + ".");
                 
                 // «Κοιμίζουμε» το Thread και ξαναπροσπαθούμε
                 try {

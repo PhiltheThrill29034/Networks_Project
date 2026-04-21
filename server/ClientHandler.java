@@ -91,6 +91,7 @@ public class ClientHandler implements Runnable {
         String password = parts[2]; 
         UserProfile newUser = new UserProfile(username, password);
         if (server.registerUser(newUser)) {
+            System.out.println("[AUCTION_SERVER] " + username + " registered successfully.");
             return "REGISTER_OK|Welcome to the auction";
         } else {
             return "[ERROR]|Username already taken";
@@ -120,8 +121,9 @@ public class ClientHandler implements Runnable {
                 user.getBidderCount()
             );
             if (!server.isLoggedIn(username)){
-                server.addActiveSession(newSession);
-                return "LOGIN_OK|"+tokenId;
+                server.addActiveSession(newSession);            
+                System.out.println("[AUCTION_SERVER] " + username + " logged in successfully.");
+                return "LOGIN_OK|"+tokenId;                
             } else {
                 return "[ERROR]|Already logged in";
             }
@@ -175,6 +177,7 @@ public class ClientHandler implements Runnable {
         }
 
         server.removePeer(tokenId);
+        System.out.println("[AUCTION_SERVER] " + tokenId + " registered successfully.");
         return "LOGOUT_OK|Logged out successfully";
     }
 }

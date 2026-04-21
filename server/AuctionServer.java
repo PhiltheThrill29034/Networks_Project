@@ -19,11 +19,12 @@ public class AuctionServer{
     private ConcurrentHashMap<String,UserProfile> userDB = new ConcurrentHashMap<>();
     private ConcurrentHashMap<String,ActivePeer> activeSessions = new ConcurrentHashMap<>(); //the key is the token_id. the value is the ActivePeer object
     private LinkedBlockingQueue<AuctionItem> auctionQueue = new LinkedBlockingQueue<>();
-    private ConcurrentHashMap<String, String> objectOwnership = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<String, String> objectOwnership = new ConcurrentHashMap<>(); // <objectId, tokenId>
     private List<PrintWriter> clientWriters = new CopyOnWriteArrayList<>(); // Το CopyOnWriteArrayList<>() είναι Thread-safe
 
     public static void main (String[] args){
         AuctionServer server = new AuctionServer();
+        server.startAuctionManager();
         server.startLoop();
 
     }
@@ -34,7 +35,7 @@ public class AuctionServer{
             System.out.println("[Server] Listening on port 5000...");
             while (true){
                 Socket clientSocket = ss.accept();
-                new Thread(new ClientHandler(clientSocket,this));
+                new Thread(new ClientHandler(clientSocket,this)).start();
             }
             
         } catch (IOException e){
@@ -124,15 +125,15 @@ public class AuctionServer{
                     //If there is no active auction, we check if there are pending auctions in the queue. If yes, we start the next one.
                     if (currentAuction == null && !auctionQueue.isEmpty()) {
                         currentAuction = auctionQueue.poll();
+                        System.out.println("[AUCTION_SERVER] Started auction: " + currentAuction.getObjectId() + " of seller (tokenId): " + currentAuction.getSellerTokenId());
                         auctionEndTime = System.currentTimeMillis() + (currentAuction.getDuration() * 1000L);
                         currentHighestBidderToken = null;
-                        System.out.println("[AUCTION_SERVER] Νέα δημοπρασία: " + currentAuction.getObjectId());
                     }
                 
                     if (currentAuction != null) {
                         //If there is an active auction, we check if the seller is still connected. If not, we cancel the auction immediately.
                         if (!activeSessions.containsKey(currentAuction.getSellerTokenId())) {
-                            System.out.println("[AUCTION_SERVER] Ο πωλητής αποσυνδέθηκε. Ακύρωση: " + currentAuction.getObjectId());
+                            System.out.println("[AUCTION_SERVER] Seller disconnected. Cancelling: " + currentAuction.getObjectId() + " auctions.");
                             currentAuction = null; 
                         } else if (System.currentTimeMillis() >= auctionEndTime) {
                             finalizeAuction();
@@ -150,9 +151,12 @@ public class AuctionServer{
             System.out.println("[AUCTION_SERVER] Auction for " + currentAuction.getObjectId() + " had ended.");
             String message;
 
+            System.out.println("[FINALIZE] Finalizing " + currentAuction.getObjectId() + " auction.");
             if (currentHighestBidderToken != null) {
                 ActivePeer winner = activeSessions.get(currentHighestBidderToken);
                 ActivePeer seller = activeSessions.get(currentAuction.getSellerTokenId());
+
+                System.out.println("[FINALIZE] winner token = " + currentHighestBidderToken);
 
                 if (winner != null && seller != null) {
                     // Ενημερώνουμε τους μετρητές
@@ -167,7 +171,17 @@ public class AuctionServer{
                                        currentAuction.getObjectId() + " is " + winner.getUsername() + "!");
                 }
 
+                if (winner == null) {
+                    System.out.println("[AUCTION_SERVER] Winner disconnected, auction cancelled or no winner broadcast");
+                }
+
+                if (seller == null) {
+                    System.out.println("[AUCTION_SERVER] Seller disconnected, auction invalid");
+                }
+
             } else { // Δεν υπάρχει κάποιος αγοραστής
+
+                
                 message = "AUCTION_FINISHED_NO_WINNER" + "|" + currentAuction.getObjectId();
                 broadcast(message);
             }
@@ -185,7 +199,7 @@ public class AuctionServer{
     // Returns the highest bid and the corresponding bidder token for the current auction.
     public synchronized String getAuctionDetailsResponse() {
         if (currentAuction == null) return "[ERROR]|No active auction";
-        return "AUCTION_DETAILS|" + currentAuction.getSellerTokenId() + "|" + currentAuction.getHighestBid();
+        return "AUCTION_DETAILS|" + currentAuction.getSellerTokenId() + "|" + currentAuction.getHighestBid() + "|" + auctionEndTime;
     }
 
     public synchronized String processBid(String tokenId, double amount) {
@@ -194,9 +208,11 @@ public class AuctionServer{
         if (amount > currentAuction.getHighestBid()) {
             currentAuction.setHighestBid(amount);
             currentHighestBidderToken = tokenId;
-            return "BID_OK|" + amount;
+            System.out.println("[DEBUG] highestBidderToken = " + currentHighestBidderToken);
+            System.out.println("[DEBUG] highestBid = " + currentAuction.getHighestBid());
+            return "NEW_BID|OK|" + amount + "|" + currentAuction.getObjectId();
         }
-        return "[ERROR]|Bid too low";
+        return "NEW_BID|ERROR|" + currentAuction.getHighestBid() + "|" + currentAuction.getObjectId();
     }
 
     public String updateOwner(String objectId, String tokenId) { // Γίνεται με την αγορά ενός object από κάποιον bidder
@@ -208,7 +224,6 @@ public class AuctionServer{
 
     public void addClientWriters(PrintWriter out) { // Προσθέτουμε από κάθε ClientHandler το κανάλι επικοινωνίας του (out)
         clientWriters.add(out);
-        System.out.println("[AUCTION_SERVER] New client registered for broadcasts.");
     }
 
     public void removeClientWriters(PrintWriter out) {
@@ -220,4 +235,5 @@ public class AuctionServer{
             out.println(message);
         }
     }
+
 }

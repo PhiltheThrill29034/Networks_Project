@@ -3,6 +3,8 @@ package Bidder;
 import java.io.IOException;
 
 import java.net.Socket;
+import java.net.BindException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 
 public class B2B_Server { // Είναι ο server που περιμένει συνδέσεις απο άλλους Bidder
@@ -18,7 +20,9 @@ public class B2B_Server { // Είναι ο server που περιμένει συ
     @SuppressWarnings("resource") // Το χρησιμοποιούμε για να «κρύψουμε» το warning του server για το γεγονός ότι δεν το κλείνουμε ποτέ (resource leak)
     public void start() throws IOException {
         
-        ServerSocket server = new ServerSocket(port);
+        ServerSocket server = new ServerSocket();
+        server.setReuseAddress(true);
+        server.bind(new InetSocketAddress(port));
 
         while(true) {
             Socket auctionSocket = server.accept();
