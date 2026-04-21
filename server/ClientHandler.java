@@ -6,7 +6,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.util.Random;
 
 import shared.models.AuctionItem;
 
@@ -56,9 +55,10 @@ public class ClientHandler implements Runnable {
                 case "GET_CURRENT_AUCTION" -> response = server.getCurrentAuctionResponse();
                 case "GET_AUCTION_DETAILS" -> response = server.getAuctionDetailsResponse();
                 case "PLACE_BID" -> {
-                if (parts.length < 3) throw new IllegalArgumentException("Missing bid data");
-                    response = server.processBid(parts[1], Double.parseDouble(parts[2]));
-                }
+                    if (parts.length < 3) throw new IllegalArgumentException("Missing bid data");
+                        response = server.processBid(parts[1], Double.parseDouble(parts[2]));
+                    }
+                case "UPDATE_OWNER" -> response = server.updateOwner(parts[1], parts[2]);
             }
         } catch (IllegalArgumentException e){
             response = e.getMessage();

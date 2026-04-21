@@ -14,6 +14,7 @@ public class AuctionServer{
     private ConcurrentHashMap<String,UserProfile> userDB = new ConcurrentHashMap<>();
     private ConcurrentHashMap<String,ActivePeer> activeSessions = new ConcurrentHashMap<>(); //the key is the token_id. the value is the ActivePeer object
     private LinkedBlockingQueue<AuctionItem> auctionQueue = new LinkedBlockingQueue<>();
+    private ConcurrentHashMap<String, String> objectOwnership = new ConcurrentHashMap<>();
     public static void main (String[] args){
         AuctionServer server = new AuctionServer();
         server.startLoop();
@@ -106,6 +107,7 @@ public class AuctionServer{
 
     private AuctionItem currentAuction = null;
     private long auctionEndTime = 0;
+    @SuppressWarnings("unused")
     private String currentHighestBidderToken = null;
 
     public void startAuctionManager() {
@@ -156,5 +158,12 @@ public class AuctionServer{
             return "BID_OK|" + amount;
         }
         return "[ERROR]|Bid too low";
+    }
+
+    public String updateOwner(String objectId, String tokenId) { // Γίνεται με την αγορά ενός object από κάποιον bidder
+        if (!objectOwnership.contains(objectId)) return "[ERROR]|No such object exists";
+            
+        objectOwnership.put(objectId, tokenId);
+        return "UPDATED_OWNER";
     }
 }

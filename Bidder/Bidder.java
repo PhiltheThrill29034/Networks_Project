@@ -39,7 +39,8 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
 
     private String response;
 
-    private Object_Generator objectGenerator;   // 
+    private Object_Generator objectGenerator;   //
+    private B2B_Server_Thread b2bServerThread;        // 
     private ScheduledExecutorService scheduler; //       Threads. Τα αρχικοπιούμε ως πεδία της κλάσης, για να μπορούμε να τα κλείνουμε όταν κάνουμε logout
     private Thread listener;                    //
 
@@ -116,6 +117,10 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                             }
                             break;
 
+                        case "UPDATED_OWNER":
+                            System.out.println("[Bidder]. Ownership was updated successfully.");
+                            break;
+                        
                         case "[ERROR]":
                             System.err.println("[Bidder] ERROR. Something failed with the data transfered between " 
                                                + biddersName + " Bidder and Auction Server.");
@@ -139,7 +144,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
     public void startBidder() { // Ενεργοποιεί όλη τη διαδικασία
 
         // Ξεκινάμε το Thread όπου θα χειρίζεται τις συνδέσεις μεταξύ αυτού και των άλλων Bidder
-        B2B_Server_Thread b2bServerThread = new B2B_Server_Thread(b2bServerPort);
+        b2bServerThread = new B2B_Server_Thread(b2bServerPort, getName());
         b2bServerThread.start();
 
         // Συνδεόμαστε στο Auction Server
@@ -168,7 +173,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
             // Ξεκινάμε την παραγωγή των Object_00.txt αρχείων
             objectGenerator = new Object_Generator(this); // Δεν χρειάζεται κάποιο port, γιατί το Thread απλά θα προσθέτει αρχεία σε φάκελο
             objectGenerator.start();
-            
+
             // Ξεκινάμε το χρονόμετρο του Auction για τη μεθοδο getCurrentAuction
             startAuctionTimer();
 
@@ -184,7 +189,6 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
             System.err.println("ERROR during login with input to " + this.biddersName + " bidder from Auction server");
         }
 
-        // ????????????????????????//
         // Το κάνουμε αυτό, για να εξασφαλίσουμε ότι ο Bidder θα κάνει logout όταν κλείσει εντελώς το πρόγραμμα
         logoutWhenProgramShutsDown();
         
@@ -382,18 +386,25 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
     }
 
     private void startTransactionAsBuyer(String objectId, String ip, int port) {
-    try (Socket b2bSocket = new Socket(ip, port);
-         PrintWriter b2bOut = new PrintWriter(b2bSocket.getOutputStream(), true);
-         BufferedReader b2bIn = new BufferedReader(new InputStreamReader(b2bSocket.getInputStream()))) {
-        
-        b2bOut.println("BUY_OBJECT|" + objectId);
-        
-        String metadata = b2bIn.readLine();
-        if (metadata != null) {
-            Path path = Paths.get("shared_directory", this.biddersName + "_objects", objectId + ".txt");
-            Files.write(path, metadata.getBytes());
-            System.out.println("[B2B] Transaction complete. Saved: " + objectId);
-        }
+        try (Socket b2bSocket = new Socket(ip, port);
+             PrintWriter b2bOut = new PrintWriter(b2bSocket.getOutputStream(), true);
+             BufferedReader b2bIn = new BufferedReader(new InputStreamReader(b2bSocket.getInputStream()))) {
+            
+            b2bOut.println("BUY_OBJECT|" + objectId);
+            
+            String metadata = b2bIn.readLine();
+            if (metadata != null) {
+                Path path = Paths.get("shared_directory", this.biddersName + "_objects", objectId + ".txt");
+                Files.write(path, metadata.getBytes());
+                b2bOut.println("[OK]");
+                System.out.println("[B2B] Transaction complete. Saved: " + objectId);
+            } else {
+                b2bOut.println("[ERROR]");
+            }
+
+            // Λέμε στον Auction server να ενημερώσει το ownership του αντικειμένου
+            out.println("UPDATE_OWNER|" + objectId + "|" + this.tokenId);
+            System.out.println("[Bidder] Informed server for change of ownership of " + objectId);
         } catch (IOException e) {
             System.err.println("[B2B] Transaction failed: " + e.getMessage());
         }
