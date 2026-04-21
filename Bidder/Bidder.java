@@ -117,6 +117,9 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                             }
                             break;
 
+                        case "AUCTION_FINISHED_NO_WINNER":
+                            break;
+
                         case "UPDATED_OWNER":
                             System.out.println("[Bidder]. Ownership was updated successfully.");
                             break;

@@ -21,31 +21,31 @@ public class ActivePeer {
     }
 
     public String getUsername() {
-        return username;
+        return this.username;
     }
 
     public String getPort() {
-        return port;
+        return this.port;
     }
 
     public String getIp() {
-        return ip;
+        return this.ip;
     }
 
     public String getTokenId() {
-        return tokenId;
+        return this.tokenId;
     }
 
     public int getNumAuctionsSeller() {
-        return numAuctionsSeller;
+        return this.numAuctionsSeller;
     }
 
     public int getNumAuctionsBidder() {
-        return numAuctionsBidder;
+        return this.numAuctionsBidder;
     }
 
     public synchronized void incrementSellerCount() {
-        this.numAuctionsBidder++;
+        this.numAuctionsSeller++;
     }
 
     public synchronized void incrementBidderCount() {

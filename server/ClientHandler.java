@@ -23,10 +23,15 @@ public class ClientHandler implements Runnable {
 
     public void run(){
 
+        PrintWriter writer = null;
+
         try (
             BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
             PrintWriter out = new PrintWriter(new OutputStreamWriter(clientSocket.getOutputStream()),true)
         ) {
+            writer = out; // Το μεταφέρουμε, ώστε να μπορούμε να το αφαιρέσουμε από τη clientWriters λίστα στο finally
+            server.addClientWriters(writer); // Προσθέτουμε το κανάλι επικοινωνίας του στη λίστα στον ActionServer
+
             String message;
             while ((message = in.readLine())!=null){
 
@@ -35,7 +40,11 @@ public class ClientHandler implements Runnable {
             }
 
         } catch (IOException e){
-            System.err.println("[ERROR] lost connection to client.");
+            System.err.println("[ERROR] Lost connection to client.");
+        } finally {
+            if (writer != null) {
+                server.removeClientWriters(writer);
+            }
         }
     }
     
