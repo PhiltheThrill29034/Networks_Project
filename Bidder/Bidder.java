@@ -48,7 +48,6 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
         this.b2bServerPort = port;
         this.biddersName = name;
         this.biddersPassword = password;
-        startBidder();
     }
 
     // Το Thread αυτό λειτουργεί ως ο δίαμεσος στην επικοινωνία ανάμεσα στον Auction server και τον Bidder, 
