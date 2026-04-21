@@ -112,14 +112,16 @@ public class AuctionServer{
 
     }
 
-    private AuctionItem currentAuction = null;
+    private AuctionItem currentAuction = null; //The current active auction.
     private long auctionEndTime = 0;
     private String currentHighestBidderToken = null;
 
     public void startAuctionManager() {
+       //Creates a new auction manager thread that continuously checks for active auctions and manages the auction lifecycle.
         new Thread(() -> {
             while (true) {
-                synchronized (this) {
+                synchronized (this) { //Prevents other threads from modifying the auction state while we are checking it.
+                    //If there is no active auction, we check if there are pending auctions in the queue. If yes, we start the next one.
                     if (currentAuction == null && !auctionQueue.isEmpty()) {
                         currentAuction = auctionQueue.poll();
                         auctionEndTime = System.currentTimeMillis() + (currentAuction.getDuration() * 1000L);
@@ -128,6 +130,7 @@ public class AuctionServer{
                     }
                 
                     if (currentAuction != null) {
+                        //If there is an active auction, we check if the seller is still connected. If not, we cancel the auction immediately.
                         if (!activeSessions.containsKey(currentAuction.getSellerTokenId())) {
                             System.out.println("[AUCTION_SERVER] Ο πωλητής αποσυνδέθηκε. Ακύρωση: " + currentAuction.getObjectId());
                             currentAuction = null; 
@@ -141,6 +144,7 @@ public class AuctionServer{
         }).start();
     }
 
+    //Finalizes the current auction by resetting the auction state for the next auction, updating the winner with the buyer's port and announcing it.
     private void finalizeAuction() {
         if (currentAuction != null) {
             System.out.println("[AUCTION_SERVER] Auction for " + currentAuction.getObjectId() + " had ended.");
@@ -172,17 +176,20 @@ public class AuctionServer{
         }
     }
 
+    // Returns a response string indicating the current auction status.
     public synchronized String getCurrentAuctionResponse() {
         if (currentAuction == null) return "NO_ACTIVE_AUCTION";
         return "CURRENT_AUCTION|" + currentAuction.getObjectId() + "|" + currentAuction.getDescription();
     }
 
+    // Returns the highest bid and the corresponding bidder token for the current auction.
     public synchronized String getAuctionDetailsResponse() {
         if (currentAuction == null) return "[ERROR]|No active auction";
         return "AUCTION_DETAILS|" + currentAuction.getSellerTokenId() + "|" + currentAuction.getHighestBid();
     }
 
     public synchronized String processBid(String tokenId, double amount) {
+        //Checks if the bid is the highest bid for the current auction. If yes, it updates the current highest bid and bidder token. Otherwise, it returns an error message.
         if (currentAuction == null) return "[ERROR]|No active auction";
         if (amount > currentAuction.getHighestBid()) {
             currentAuction.setHighestBid(amount);

@@ -90,7 +90,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                             break;
 
                         case "NEW_BID":
-                            // υλοποίηση placeBid
+                            // NEW_BID|status|bidAmount|objectId|currentHighestBid
                             String status = parts[1];
                             double bidAmount = Double.parseDouble(parts[2]);
                             String objId = parts[3];
@@ -371,12 +371,11 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
 
     }
 
-    //ΕΔΩ ΓΙΝΕΤΑΙ ΤΟ PLACE_BID
+    //Receives the current auction details from the Auction Server. Automatically calculates a new bid based on the required formula. Sends the bid to the Server using the "PLACE_BID" protocol.
     private void handleAuctionDetails(String auctionBiddersTokenId, double auctionObjectHighestBid, int auctionTimeLeft) {
         System.out.println("[Bidder] " + this.biddersName + " received all the details of auction object (Seller: " 
         + auctionBiddersTokenId + ", Highest bid: " + auctionObjectHighestBid + ", Time left: " + auctionTimeLeft + ").");
 
-        //ΕΔΩ ΓΙΝΕΤΑΙ ΤΟ placeBid KAI Ο,ΤΙΔΗΠΟΤΕ ΑΛΛΟ ΧΡΕΙΑΖΕΤΑΙ ΓΙΑ ΤΗΝ B2B ΣΥΝΔΕΣΗ
         double randVal = new Random().nextDouble();
         double myNewBid = auctionObjectHighestBid * (1 + (randVal / 10.0));
     
