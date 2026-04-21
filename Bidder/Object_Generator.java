@@ -1,4 +1,4 @@
-package Bidder_Gerasimos;
+package Bidder;
 
 import java.util.Random;
 

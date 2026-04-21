@@ -1,9 +1,13 @@
-package Bidder_Gerasimos;
+package Bidder;
 
 import java.io.IOException;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 import java.util.Scanner;
 
@@ -101,14 +105,14 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                         case "AUCTION_FINISHED":
                             // ελέγχουμε αν κερδίσαμε εμείς την δημοπρασία, και αν ναι, ξεκινάμε το B2B
                             String winnerToken = parts[1];
-                            String objId = parts[2];
+                            String objectId = parts[2];
                             
-                            if (winnerToken.equals(this.tokenId)) {
-                                System.out.println("[SUCCESS] I WON the auction for " + objId + "!");
+                            if (winnerToken.equals(getTokenId())) {
+                                System.out.println("[SUCCESS] I WON the auction for " + objectId + "!");
                                 String sellerIp = parts[3];
                                 int sellerPort = Integer.parseInt(parts[4]);
                                 
-                                startTransactionAsBuyer(objId, sellerIp, sellerPort);
+                                startTransactionAsBuyer(objectId, sellerIp, sellerPort);
                             }
                             break;
 
@@ -404,6 +408,10 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
 
     public String getName() {
         return this.biddersName;
+    }
+
+    public String getTokenId() {
+        return this.tokenId;
     }
 
 }
