@@ -1,0 +1,11 @@
+Bidder 
+
+javac -d target/classes Bidder/B2B_Connection_Thread.java Bidder/B2B_Server_Thread.java Bidder/B2B_Server.java Bidder/Bidder_Producer.java Bidder/Bidder.java Bidder/Object_Generator.java 
+
+java -cp target/classes Bidder.Bidder_Producer
+
+
+
+server
+
+javac -d target/classes server/ActivePeer.java server/AuctionServer.java server/ClientHandler.java server/UserProfile.java
