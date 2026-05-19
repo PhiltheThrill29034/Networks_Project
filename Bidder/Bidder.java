@@ -117,10 +117,19 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                             
                             if (winnerToken.equals(getTokenId())) {
                                 System.out.println("[SUCCESS] I WON the auction for " + objectId + "!");
-                                String sellerIp = parts[3];
-                                int sellerPort = Integer.parseInt(parts[4]);
+                                Random r = new Random();
+                                double choice = r.nextDouble();
+                                if (choice < 0.3){
+                                    System.out.println("I don't want this shit");
+                                    out.println("CANCEL_BID|"+tokenId+"|"+objectId);
+                                } else {
+                                    out.println("ACK|"+tokenId+"|"+objectId);
+                                    String sellerIp = parts[3];
+                                    int sellerPort = Integer.parseInt(parts[4]);
+                                    startTransactionAsBuyer(objectId, sellerIp, sellerPort);
+
+                                }
                                 
-                                startTransactionAsBuyer(objectId, sellerIp, sellerPort);
                             }
 
                             // Σταματαμε το πρόγραμμα μετά απο ορισμένα Auction

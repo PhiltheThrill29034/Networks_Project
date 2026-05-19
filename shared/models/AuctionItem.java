@@ -1,11 +1,14 @@
 package shared.models;
 
+
+
 public class AuctionItem {
     private String tokenId;
     private String itemId;
     private String desc;
     private double highestBid;
     private int duration;
+    private AuctionState state = AuctionState.IDLE;
 
     public AuctionItem(String tokenId,String itemId, String desc, double startBid, int duration)
     {
@@ -38,6 +41,14 @@ public class AuctionItem {
 
     public int getDuration() {
         return duration;
+    }
+
+    public AuctionState getState(){
+        return this.state;
+    }
+
+    public void setState(AuctionState state){
+        this.state=state;
     }
 
 }

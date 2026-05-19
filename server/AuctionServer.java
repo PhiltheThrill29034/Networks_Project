@@ -13,6 +13,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.List;
 
 import shared.models.AuctionItem;
+import shared.models.AuctionState;
 
 public class AuctionServer{
 
@@ -89,6 +90,7 @@ public class AuctionServer{
         if (peer!=null){
             int numSellerCount = peer.getNumAuctionsSeller();
             int numBidderCount = peer.getNumAuctionsBidder();
+            double reputation_score = peer.getReputation();
 
             
             
@@ -96,6 +98,7 @@ public class AuctionServer{
             if (user!=null){
                 user.setSellerCount(numSellerCount); //now, we copy the seller and bidder count into our database, because our active sessions are temporary.
                 user.setBidderCount(numBidderCount);
+                user.setReputationScore(reputation_score);
             }
         }
 
@@ -125,6 +128,7 @@ public class AuctionServer{
                     //If there is no active auction, we check if there are pending auctions in the queue. If yes, we start the next one.
                     if (currentAuction == null && !auctionQueue.isEmpty()) {
                         currentAuction = auctionQueue.poll();
+                        currentAuction.setState(AuctionState.RUNNING);
                         System.out.println("[AUCTION_SERVER] Started auction: " + currentAuction.getObjectId() + " of seller (tokenId): " + currentAuction.getSellerTokenId());
                         auctionEndTime = System.currentTimeMillis() + (currentAuction.getDuration() * 1000L);
                         currentHighestBidderToken = null;
@@ -148,7 +152,7 @@ public class AuctionServer{
     //Finalizes the current auction by resetting the auction state for the next auction, updating the winner with the buyer's port and announcing it.
     private void finalizeAuction() {
         if (currentAuction != null) {
-            System.out.println("[AUCTION_SERVER] Auction for " + currentAuction.getObjectId() + " had ended.");
+            System.out.println("[AUCTION_SERVER] Auction for " + currentAuction.getObjectId() + " has ended.");
             String message;
 
             System.out.println("[FINALIZE] Finalizing " + currentAuction.getObjectId() + " auction.");
@@ -160,15 +164,17 @@ public class AuctionServer{
 
                 if (winner != null && seller != null) {
                     // Ενημερώνουμε τους μετρητές
-                    winner.incrementBidderCount();
-                    seller.incrementSellerCount();
-                
+                    //winner.incrementBidderCount();
+                    //seller.incrementSellerCount();
+                    currentAuction.setState(AuctionState.PENDING_CONFIRMATION);
                     message = "AUCTION_FINISHED" + "|" + winner.getTokenId() + "|" + 
                                      currentAuction.getObjectId() + "|" + seller.getIp() + "|" + seller.getPort();
                     // Μεταδίδουμε το message σε όλους τους Bidder        
                     broadcast(message);
                     System.out.println("[AUCTION_SERVER] Winner of auction for object " + 
-                                       currentAuction.getObjectId() + " is " + winner.getUsername() + "!");
+                                       currentAuction.getObjectId() + " is " + winner.getUsername() + ". Waiting for confirmation.");
+
+                    return; // return here so that currentAuction is not set to null
                 }
 
                 if (winner == null) {
@@ -188,6 +194,93 @@ public class AuctionServer{
             currentAuction = null; 
             currentHighestBidderToken = null;
         }
+    }
+
+    public String handleCancellation(String tokenId,String objectId){
+        if (currentAuction == null) {
+            System.out.println("[SERVER] Cancel failed: No active auction running.");
+            return "ERROR|NO_ACTIVE_AUCTION";
+        }
+
+        if (currentAuction.getState() != AuctionState.PENDING_CONFIRMATION) {
+            System.out.println("[SERVER] Request denied: This auction is not accepting trade confirmations.");
+            return "ERROR|INVALID_AUCTION_STATE";
+        }
+
+            // 2. Validate the objectId safely
+        if (objectId == null || !currentAuction.getObjectId().equals(objectId)) {
+            System.out.println("[SERVER] Cancel failed: Object ID mismatch.");
+            return "ERROR|INVALID_OBJ_ID";
+        }
+
+        // 3. Find the peer who wants to flake
+        ActivePeer flake = activeSessions.get(tokenId);
+        if (flake == null) {
+            System.out.println("[SERVER] Cancel failed: Flaking peer not found in active sessions.");
+            return "ERROR|NOT_FOUND";
+        }
+
+        // 4. Ensure they are actually the legitimate winner
+        if (!tokenId.equals(currentHighestBidderToken)) {
+            System.out.println("[SERVER] Cancel failed: Peer is not the current highest bidder.");
+            return "ERROR|WRONG_WINNER";
+        }
+       
+        System.out.println("Bidder "+flake.getUsername()+" cancelled!! Penalizing...");
+        flake.updateReputation(true);
+        currentAuction = null;
+        currentHighestBidderToken = null;
+        return "AUCTION_CANCELLED_SUCCESS";
+
+        
+    }
+
+    public String handleSuccess(String tokenId,String objectId){
+        if (currentAuction == null) {
+            System.out.println("[SERVER] Auction failed: No active auction running.");
+            return "ERROR|NO_ACTIVE_AUCTION";
+        }
+
+        if (currentAuction.getState() != AuctionState.PENDING_CONFIRMATION) {
+            System.out.println("[SERVER] Request denied: This auction is not accepting trade confirmations.");
+            return "ERROR|INVALID_AUCTION_STATE";
+        }
+
+            // 2. Validate the objectId safely
+        if (objectId == null || !currentAuction.getObjectId().equals(objectId)) {
+            System.out.println("[SERVER] Auction failed: Object ID mismatch.");
+            return "ERROR|INVALID_OBJ_ID";
+        }
+
+        // 3. Find the peer who wants to flake
+        ActivePeer winner = activeSessions.get(tokenId);
+        if (winner == null) {
+            System.out.println("[SERVER] Auction failed: Winner peer not found in active sessions.");
+            return "ERROR|NOT_FOUND";
+        }
+
+        // 4. Ensure they are actually the legitimate winner
+        if (!tokenId.equals(currentHighestBidderToken)) {
+            System.out.println("[SERVER] Auction failed: Peer is not the current highest bidder.");
+            return "ERROR|WRONG_WINNER";
+        }
+        ActivePeer seller = activeSessions.get(currentAuction.getSellerTokenId());
+        if (seller==null){
+            System.out.println("[AUCTION_SERVER] Seller disconnected, auction invalid");
+            return "AUCTION_CANCELLED_SELLER_UNAVAILABLE";
+        }
+
+
+        System.out.println("Bidder "+winner.getUsername()+" won the item!!");
+        winner.updateReputation(false);
+        winner.incrementBidderCount();
+        seller.incrementSellerCount();
+
+        
+
+        currentAuction = null;
+        currentHighestBidderToken = null;
+        return "AUCTION_COMPLETED_SUCCESS";
     }
 
     // Returns a response string indicating the current auction status.

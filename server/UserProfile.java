@@ -5,6 +5,7 @@ public class UserProfile {
     String password;
     public int numAuctionsSeller = 0;
     public int numAuctionsBidder = 0;
+    private double reputation_score = 1;
 
     UserProfile(String name, String password){
         this.name=name;
@@ -34,5 +35,13 @@ public class UserProfile {
 
     public int getBidderCount(){
          return this.numAuctionsBidder;
+    }
+
+    public void setReputationScore(double rep){
+        this.reputation_score=rep;
+    }
+
+    public double getReputation(){
+        return this.reputation_score;
     }
 }

@@ -68,6 +68,8 @@ public class ClientHandler implements Runnable {
                         response = server.processBid(parts[1], Double.parseDouble(parts[2]));
                     }
                 case "UPDATE_OWNER" -> response = server.updateOwner(parts[1], parts[2]);
+                case "CANCEL_BID" -> response = server.handleCancellation(parts[1],parts[2]);
+                case "ACK" -> response = server.handleSuccess(parts[1],parts[2]);
             }
         } catch (IllegalArgumentException e){
             response = e.getMessage();
@@ -118,7 +120,8 @@ public class ClientHandler implements Runnable {
             ActivePeer newSession = new ActivePeer(username,
                 tokenId,
                 user.getSellerCount(),
-                user.getBidderCount()
+                user.getBidderCount(),
+                user.getReputation()
             );
             if (!server.isLoggedIn(username)){
                 server.addActiveSession(newSession);            
