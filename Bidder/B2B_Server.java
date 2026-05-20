@@ -2,10 +2,8 @@ package Bidder;
 
 import java.io.IOException;
 
-import java.net.Socket;
-import java.net.BindException;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
+import java.net.DatagramSocket;
+import java.net.DatagramPacket;
 
 public class B2B_Server { // Είναι ο server που περιμένει συνδέσεις απο άλλους Bidder
  
@@ -17,16 +15,27 @@ public class B2B_Server { // Είναι ο server που περιμένει συ
         this.name = name;
     }
 
-    @SuppressWarnings("resource") // Το χρησιμοποιούμε για να «κρύψουμε» το warning του server για το γεγονός ότι δεν το κλείνουμε ποτέ (resource leak)
+    @SuppressWarnings("resource")
     public void start() throws IOException {
         
-        ServerSocket server = new ServerSocket();
-        server.setReuseAddress(true);
-        server.bind(new InetSocketAddress(port));
+        // UDP Server
+        DatagramSocket udpSocket = new DatagramSocket(port);
+        System.out.println("[B2B_Server] " + name + "'s server is listening on port " + port);
 
         while(true) {
-            Socket auctionSocket = server.accept();
-            new B2B_Connection_Thread(auctionSocket, name).start();
+
+            // Σε αντίθεση με το TCP, το UDP δεν έχει streams, άρα πρέπει να δεσμεύουμε χώρο στη RAM για το πακέτο. 
+            // Αυτό γίνεται με το receiveBuffer, το οποίο δεσμεύει 1024 bytes (1 KB)
+            byte[] requestBuffer = new byte[1024];
+            
+            // Προετοιμασία του πακέτου, ώστε να μπορεί αυτό να δεχθεί τα data
+            DatagramPacket requestPacket = new DatagramPacket(requestBuffer, requestBuffer.length);
+
+            // Παραλαβή του request (πακέτου). Περιμένει εδώ μέχρι να σταλθεί το πακέτο
+            udpSocket.receive(requestPacket);
+
+            // Εκκινούμε τη διαδικασία της αγοράς του object
+            new B2B_Connection_Thread(requestPacket, name).start();
         }
     }
 

@@ -1,23 +1,26 @@
 package Bidder;
 
-import java.io.IOException;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
-import java.util.Scanner;
-
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
 import java.net.Socket;
 
+import java.nio.ByteBuffer;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.Files;
+
+import java.util.Random;
+import java.util.Scanner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-
-import java.util.Random;
 
 
 public class Bidder { // Το αρχείο που τρέχουμε για να αρχίσουμε την δημοπρασία με την συμμετοχή των Bidders
@@ -120,7 +123,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                                 Random r = new Random();
                                 double choice = r.nextDouble();
                                 if (choice < 0.3){
-                                    System.out.println("I don't want this shit");
+                                    System.out.println("["+ getBiddersName() +"] I don't want this shit");
                                     out.println("CANCEL_BID|"+tokenId+"|"+objectId);
                                 } else {
                                     out.println("ACK|"+tokenId+"|"+objectId);
@@ -415,28 +418,141 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
         out.println("PLACE_BID|" + this.tokenId + "|" + myNewBid);
     }
 
-    private void startTransactionAsBuyer(String objectId, String ip, int port) {
-        try (Socket b2bSocket = new Socket(ip, port);
-             PrintWriter b2bOut = new PrintWriter(b2bSocket.getOutputStream(), true);
-             BufferedReader b2bIn = new BufferedReader(new InputStreamReader(b2bSocket.getInputStream()))) {
-            
-            b2bOut.println("BUY_OBJECT|" + objectId);
-            
-            String metadata = b2bIn.readLine();
-            if (metadata != null) {
-                Path path = Paths.get("shared_directory", this.biddersName + "_objects", objectId + "_auctioned.txt");
-                Files.write(path, metadata.getBytes());
-                b2bOut.println("[OK]");
-                System.out.println("[B2B] Transaction complete. Saved: " + objectId);
-            } else {
-                b2bOut.println("[ERROR]");
-            }
+    private void startTransactionAsBuyer(String objectId, String sellerIp, int sellerPort) {
+        System.out.println("\n");
 
-            // Λέμε στον Auction server να ενημερώσει το ownership του αντικειμένου
-            out.println("UPDATE_OWNER|" + objectId + "|" + this.tokenId);
-            System.out.println("[Bidder] Informed server for change of ownership of " + objectId);
+        try (DatagramSocket sellerSocket = new DatagramSocket()){
+            // Το random που θα χρησιμοποιήσουμε για την παραγωγή των τυχαίων αριθμών
+            Random random = new Random();
+
+            // Στέλνουμε το request για την αγορά του object
+            String request = "BUY_OBJECT|" + objectId;
+            // Το μετατρέπουμε σε bytes
+            byte[] requestBytes = request.getBytes();
+            // Βρίσκουμε το Address του socket του seller
+            InetAddress sellerAddress = InetAddress.getByName(sellerIp);
+            // Δημιουργούμε το πακέτο
+            DatagramPacket requestBytesPacket = new DatagramPacket(requestBytes, requestBytes.length, sellerAddress, sellerPort);
+            // Στέλνουμε το πακέτο 
+            sellerSocket.send(requestBytesPacket);
+
+            // Εδώ θα συσσωρέυσουμε όλα τα εισερχόμενα πακέτα σε σειρά, ουσιαστικά δημιουργόντας το αρχείο σε bytes
+            ByteArrayOutputStream fileDataBytesStream = new ByteArrayOutputStream();
+            // Η μεταβλητή αυτή δηλώνει το αναμενόμενο sequence number του επόμενου πακέτου που θα δεχθούμαι
+            int expectedSequenceNumber = 0;
+
+            // Δέσμευση χώρου για την αποδοχή πακέτου
+            byte[] dataAsnwerBuffer = new byte[64];
+            // Προετοιμασία πακέτου
+            DatagramPacket dataPacket = new DatagramPacket(dataAsnwerBuffer, dataAsnwerBuffer.length);
+            
+            while (true) {
+                // Αναμονή μέχρι να ληφθεί το πακέτο
+                sellerSocket.receive(dataPacket);
+
+                // Απορρίψη τα πακέτα με πιθανότητα 20%
+                if (random.nextDouble() < 0.20) {
+                    System.out.println("[Bidder/startTransactionAdBuyer] " + getBiddersName() + 
+                                       " denied incoming packet from seller (20%)");
+                    // Συνεχίζουμε με το επόμενο πακέτο
+                    continue;
+                }
+
+                // Εδώ «τυλίγουμε» (wrap) τα data του ackPacket με το μηχανισμό του ByteBuffer, 
+                // (δλδ το ackBuffer είναι 64 bytes μετά το τύλιγμα)
+                ByteBuffer dataAnswerBuffer = ByteBuffer.wrap(dataPacket.getData(), 0, dataPacket.getLength());
+                // Εδώ υπάρχει ένας μηχανισμός του ByteBuffer που λειτουργεί ως εξής. Όταν καλείται το getInt(),
+                // το ByteBuffer κοιτάει που βρίσκεται ο τρέχον εσωτερικός του δείκτης. 
+                // Επειδή αυτή είναι η πρώτη ανάγνωση των δεδομένων του, αυτός βρίσκεται στην αρχή (δείκτης = 0). 
+                // Επομένως, θα κοιτάξει μόνο στα πρώτα 4 bytes, σύμφωνα με το κανόνα της Java, ο οποίος λέει ότι 
+                // κάθε int θα είναι πάντα μόνο 4 bytes. Άρα, δεν θα προκύψει πρόβλημα με την εμπλοκή των άλλων bytes 
+                // μετά από αυτά τα 4 πρώτα, τα οποία περιέχουν data του object
+                int dataSequenceNumber = dataAnswerBuffer.getInt();
+
+                // Ελέγχουμε αν έχουν σταλθεί όλα τα πακέτα (τερματικό πακέτο έχει sequenceNumber -1)
+                if (dataSequenceNumber == -1) {
+                    // Στέλνουμε ως τελικό ACK το sequence number του τελευταίου πραγαμτικού πακέτου, όχι -1 
+                    // χωρίς simulation, γιατί πρέπει αναγκαστικά να στέλνετε το πακέτο.
+                    // Σε περίπτωση που δεν σταλθεί, με το break θα βγούμε από το while και δεν θα ξανασταλθεί το πακέτο 
+                    sendACK(sellerSocket, -1, dataPacket.getAddress(), dataPacket.getPort(), random, false);
+                    // Στάλθηκαν όλα τα πακέτα, άρα βγαίνουμε από το loop
+                    break;
+                }   
+
+                // Έτσι εξασφαλίζουμε ότι όλα τα πακέτα έρχονται σε σειρά. Απορρίφθονται αυτά που δεν είναι σε σειρά
+                if (dataSequenceNumber == expectedSequenceNumber) {
+                    System.out.println("[Bidder/startTransactionAdBuyer] " + getBiddersName() + 
+                                       " accepted packet with sequence number " + dataSequenceNumber + " from seller");
+
+                    // Θέτουμε τα υπόλοιπα 60 ή λιγότερα bytes του ByteBuffer λίστα byte[] (remaining())                   
+                    byte[] metadataSubPacketBytes = new byte[dataPacket.getLength() - 4];
+                    // Όπως αναφέραμε και προηγουμένως, ο εσωτερικός δείκτης του ByteBuffer δείχνει τώρα στο 5 κελι 
+                    // (δείκτης = 4), καθώς έχουμε ήδη προσπελάσει τα 4 του int sequence number. Επομένως, με το 
+                    // .get(...), αντιστοιχίζουμε τα bytes από τον εσωτερικό δείκτη μέχρι το τέλος του ByteBuffer 
+                    // στη μεταβλητή metadataSubPacketBytes
+                    dataAnswerBuffer.get(metadataSubPacketBytes);
+                    // Μεταφέρουμε τα bytes αυτά στη μεταβλητή με τα συνολικά bytes
+                    fileDataBytesStream.write(metadataSubPacketBytes);
+
+                    // Μετακινούμαστε στο επόμενο αναμενόμενο sequence number
+                    expectedSequenceNumber++;
+                } else {
+                    System.out.println("[Bidder/startTransactionAdBuyer] " + getBiddersName() + 
+                                       " ignored packet with sequence number out of order. Expected sequence number " 
+                                       + expectedSequenceNumber + ". Received " + dataSequenceNumber + " from seller");
+                }
+                // Στέλνουμε το ACK για το συγκεκριμένο πακέτο. Αν λήφθηκε σωστά το πακέτο με σωστό sequnce number,
+                // θα σταλθεί ACK επιβεβαίωσης γι΄ αυτό το πακέτο. Αλλιώς, θα σταλθεί ξανά το ACK για το προηγούμενο
+                // πακέτο, πράγμα το οποίο θέλουμε να γίνεται
+                int ackToSend = expectedSequenceNumber - 1;
+                sendACK(sellerSocket, ackToSend, dataPacket.getAddress(), dataPacket.getPort(), random, true);
+            }
+            // Φτιάχνουμε το object αρχείο στο shared_directory και το γεμίζουμε με τα metadata του
+            Path pathToNewFile = Paths.get("shared_directory", this.biddersName + "_objects", objectId + "_auctioned.txt");
+            Files.writeString(pathToNewFile, fileDataBytesStream.toString());
+        
+            System.out.println("[Bidder/startTransactionAdBuyer] " + getBiddersName() + 
+                               "'s object transaction from seller completed. Object file saved to shared_directory");
+                               
         } catch (IOException e) {
-            System.err.println("[B2B] Transaction failed: " + e.getMessage());
+            System.out.println("[Bidder/startTransactionAdBuyer] Something failed during " + getBiddersName() +
+                               "'s connection with the seller. Details: ");
+            e.printStackTrace();
+        }
+        System.out.println("\n");
+    }
+
+    private void sendACK(DatagramSocket sellerSocket, int sequenceNumber, InetAddress sellerAddress
+                         , int sellerPort, Random rand, boolean simulate) throws IOException {
+        double possibilityToDropPacket;
+
+        // Σε περίπτωση που δεν θέλουμε να κάνουμε simulate «χάσιμο» πακέτων, το κάνουμε πάντα να το στέλνει 
+        // (όταν sequence number = -1, τερματικό πακέτο)
+        if (simulate) {
+            possibilityToDropPacket = rand.nextDouble();
+        } else {
+            possibilityToDropPacket = 0.0;
+        }
+
+        // Αποστολή των ACK πακέτων με πιθανότητα 80%
+        if (possibilityToDropPacket < 0.80) {
+            // Ορίζουμε το μέγεθος του buffer σε 64 bytes
+            ByteBuffer ackBuffer = ByteBuffer.allocate(64);
+            // Τοποθετούμε το sequenceNumber στο buffer 
+            ackBuffer.putInt(sequenceNumber);
+            // Πέρνουμε τα bytes του buffer σε byte[] λίστα 
+            byte[] ackBytesToSend = ackBuffer.array(); 
+            // Προετοιμάζουμε το πακέτο για να στείλουμε το ACK
+            DatagramPacket ackPacketToSend = new DatagramPacket(ackBytesToSend, ackBytesToSend.length, sellerAddress, sellerPort);
+            // Στέλνουμε το ACK πακέτο
+            sellerSocket.send(ackPacketToSend);
+
+            System.out.println("[Bidder/startTransactionAdBuyer] " + getBiddersName() + 
+                               " sent ACK for sequence number " + sequenceNumber);
+        } else {
+            // Το ACK πακέτο «χάνεται»
+            System.out.println("[Bidder/startTransactionAdBuyer] " + getBiddersName() + 
+                                "'s ACK for sequence number " + sequenceNumber + " was not sent (20%)");
         }
     }
 
