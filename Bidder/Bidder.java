@@ -509,7 +509,9 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
             }
             // Φτιάχνουμε το object αρχείο στο shared_directory και το γεμίζουμε με τα metadata του
             Path pathToNewFile = Paths.get("shared_directory", this.biddersName + "_objects", objectId + "_auctioned.txt");
-            Files.writeString(pathToNewFile, fileDataBytesStream.toString());
+            // Αφαιρούμε οποιαδήποτε έξτρα κενά που κουβαλάει το fileDataByteStream
+            String cleanFileData = new String(fileDataBytesStream.toByteArray()).trim();
+            Files.write(pathToNewFile, cleanFileData.getBytes());
         
             System.out.println("[Bidder/startTransactionAdBuyer] " + getBiddersName() + 
                                "'s object transaction from seller completed. Object file saved to shared_directory");

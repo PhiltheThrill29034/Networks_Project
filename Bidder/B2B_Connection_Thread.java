@@ -158,7 +158,11 @@ public class B2B_Connection_Thread extends Thread { // Τα Thread που εξη
             int nextSequenceNumber = 0;
             // Το πλήθος των πακέτων προς αποστολή
             int totalPacketsToSend = packetsToSend.size();
-        
+
+            // Τις χρησιμοποιούμε για την αποφυγή endless loop από συνεχόμενα timeout
+            int timeoutRetries = 0;
+            final int MAX_TIMEOUT_RETRIES = 5;
+
             // Δέσμευση χώρου για την αποδοχή πακέτου
             byte[] ackAnswerBuffer = new byte[64];
             // Προετοιμασία πακέτου
@@ -166,7 +170,8 @@ public class B2B_Connection_Thread extends Thread { // Τα Thread που εξη
 
             // Όσο το sequenceNumber του πρώτου σε σειρά μη επιβεβαιωμένου πακέτου 
             // είναι εντός του πλήθους των συνολικών πακέτων... 
-            while (firstInLineUnconfirmedReceivedPacket < totalPacketsToSend) {
+            while (firstInLineUnconfirmedReceivedPacket < totalPacketsToSend && 
+                   firstInLineUnconfirmedReceivedPacket != -1) {
 
                 // Όσο το επόμενο πακέτο προς αποστολή δεν υπερβαίνει το όριο του WINDOW_SIZE 
                 // (δλδ όσο τα πακέτα που θα σταλθούν σε αυτή την επανάληψη δεν υπερβαίνουν τα 3)
@@ -189,6 +194,11 @@ public class B2B_Connection_Thread extends Thread { // Τα Thread που εξη
                 try {
                     // Αναμονή μέχρι την παραλαβή του ACK από τον buyer
                     buyerSocket.receive(ackPacket);
+
+                    // Εφόσον ήρθα σε αυτό το κομμάτι του κώδικα, σημαίνει ότι λάβαμε πακέτο. Άρα, μηδενίζουμε το 
+                    // μετρητή
+                    timeoutRetries = 0;
+
                     // Εδώ «τυλίγουμε» (wrap) τα data του ackPacket με το μηχανισμό του ByteBuffer, 
                     // (δλδ το ackBuffer είναι 4 bytes μετά το τύλιγμα) ώστε να μπορέσουμε να εξάγουμε
                     // τον 4 byte αριθμό σε int
@@ -198,15 +208,29 @@ public class B2B_Connection_Thread extends Thread { // Τα Thread που εξη
                     System.out.println("[B2B Connection Thread/performGoBackN] " + this.biddersName + 
                                        " received ACK for sequence number " + ackNumber + " from buyer");
 
+                    // Ελέγχουμε αν στάλθηκε το τερματικό πακέτο με sequence number -1. Αν ναι, θέτουμε το
+                    // firstInLineUnconfirmedReceivedPacket με -1, έτσι ώστε να βγούμε από το εξωτερικό loop
+                    if (ackNumber == -1 && firstInLineUnconfirmedReceivedPacket == totalPacketsToSend - 1) {
+                        firstInLineUnconfirmedReceivedPacket = -1;
                     // Αν το ACK είναι μεγαλύτερο από το sequenceNumber του πρώτου σε σειρά μη επιβεβαιωμένου πακέτου
                     // θέτουμε αυτό το sequenceNumber να δείχνει στο επόμενο πακέτο από αυτό που δείχνει το ACK.
                     // Αν δεν είναι σημαίνει ότι δεν επιβεβαιώθηκε το πακέτο, και έτσι γυρνάμε πάλι στη διαχείριση
                     // του ACK, μέχρι να ληφθεί το επιθυμιτό ACK
-                    if (ackNumber >= firstInLineUnconfirmedReceivedPacket) {
+                    } else if (ackNumber >= firstInLineUnconfirmedReceivedPacket) {
                         firstInLineUnconfirmedReceivedPacket = ackNumber + 1;
                     }
 
                 } catch (SocketTimeoutException e) {
+                    // Αυξάνουμε το μετρητή των συνεχόμενων timeout και ελέγχουμε για την υπέρβαση του ορίου. 
+                    // Αν έχει γίνει η υπέρβαση, τερματίζουμε την επικοινωνία
+                    timeoutRetries++;
+                    if (timeoutRetries > MAX_TIMEOUT_RETRIES) {
+                        System.out.println("[B2B Connection Thread/performGoBackN] Max continuous timeout reached" +
+                                           " for " + this.biddersName + ". Buyer is down or final ACK was lost." + 
+                                           " Exiting...");
+                        return false;
+                    }
+
                     // Δεν λάβαμε κάποιο ACK από τον buyer μέσα στο χρονικό όριο των 2 δευτερολέπτων
                     System.out.println("[B2B Connection Thread/performGoBackN] Timeout! Resending " + this.biddersName + 
                                        " packets from sequence number " + firstInLineUnconfirmedReceivedPacket);

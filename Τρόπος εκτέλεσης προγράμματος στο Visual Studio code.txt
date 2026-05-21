@@ -8,7 +8,7 @@ EXECUTE: java -cp target/classes server.AuctionServer
 
 Bidder 
 
-COMPLIE: javac -d target/classes Bidder/B2B_Connection_Thread.java Bidder/* 
+COMPLIE: javac -d target/classes Bidder/* 
 
 EXECUTE: java -cp target/classes Bidder.Bidder_Producer
 
