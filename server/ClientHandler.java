@@ -62,11 +62,14 @@ public class ClientHandler implements Runnable {
                 case "REQUEST_AUCTION" -> response = getAuctionRequest(parts);
                 case "LOGOUT" -> response = handleLogout(parts);
                 case "GET_CURRENT_AUCTION" -> response = server.getCurrentAuctionResponse();
-                case "GET_AUCTION_DETAILS" -> response = server.getAuctionDetailsResponse();
+                case "GET_AUCTION_DETAILS" -> {
+                    if (parts.length < 2) throw new IllegalArgumentException("Missing object ID for details");
+                    response = server.getAuctionDetailsResponse(parts[1]);
+                }
                 case "PLACE_BID" -> {
-                    if (parts.length < 3) throw new IllegalArgumentException("Missing bid data");
-                        response = server.processBid(parts[1], Double.parseDouble(parts[2]));
-                    }
+                    if (parts.length < 4) throw new IllegalArgumentException("Missing bid data");
+                    response = server.processBid(parts[1], parts[2], Double.parseDouble(parts[3]));
+                }
                 case "UPDATE_OWNER" -> response = server.updateOwner(parts[1], parts[2]);
                 case "CANCEL_BID" -> response = server.handleCancellation(parts[1],parts[2]);
                 case "ACK" -> response = server.handleSuccess(parts[1],parts[2]);

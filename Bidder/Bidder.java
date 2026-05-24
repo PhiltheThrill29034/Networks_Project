@@ -21,6 +21,8 @@ import java.util.Scanner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 public class Bidder { // Το αρχείο που τρέχουμε για να αρχίσουμε την δημοπρασία με την συμμετοχή των Bidders
@@ -48,6 +50,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
     private B2B_Server_Thread b2bServerThread;        // 
     private ScheduledExecutorService scheduler; //       Threads. Τα αρχικοπιούμε ως πεδία της κλάσης, για να μπορούμε να τα κλείνουμε όταν κάνουμε logout
     private Thread listener;                    //
+    private Set<String> myBids = ConcurrentHashMap.newKeySet();
 
     Bidder(int port, String name, String password) {
         this.auctionsSeen = 0;
@@ -79,17 +82,23 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
 
                         case "CURRENT_AUCTION":
                             // CURRENT_AUCTION|auctionObjectId|auctionObjectDescription
-                            String auctionObjectId = parts[1];
-                            String auctionObjectDescription = parts[2];
-                            handleCurrentAuction(auctionObjectId, auctionObjectDescription);
+                            for (int i = 1; i < parts.length; i++) {
+                                String[] itemData = parts[i].split("#");
+                                if (itemData.length == 2) {
+                                    String auctionObjectId = itemData[0];
+                                    String auctionObjectDescription = itemData[1];
+                                    handleCurrentAuction(auctionObjectId, auctionObjectDescription);
+                                }
+                            }
                             break;
 
                         case "AUCTION_DETAILS":
                             // AUCTION_DETAILS|auctionBiddersToken_Id|auctionObjectHighestBid|auctionTimeLeft
-                            String auctionBiddersTokenId = parts[1];
-                            double auctionObjectHighestBid = Double.parseDouble(parts[2]);
-                            long auctionTimeLeft = Long.parseLong(parts[3]); 
-                            handleAuctionDetails(auctionBiddersTokenId, auctionObjectHighestBid, auctionTimeLeft);
+                            String detailsObjectId = parts[1];
+                            String auctionBiddersTokenId = parts[2];
+                            double auctionObjectHighestBid = Double.parseDouble(parts[3]);
+                            long auctionTimeLeft = Long.parseLong(parts[4]);
+                            handleAuctionDetails(detailsObjectId, auctionBiddersTokenId, auctionObjectHighestBid, auctionTimeLeft);
                             break;
 
                         case "AUCTION_REQUEST_OK":
@@ -105,7 +114,7 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                             if (status.equals("OK")) {
                                 System.out.println("[SUCCESS][" + getBiddersName() + "] Your bid of " + bidAmount + " for object " + objId + " was accepted!");
                             } else if (status.equals("ERROR")) {
-                                System.out.println("[REJECTED][" + getBiddersName() + "] Your bid of " + bidAmount + " is too low. Current highest bid is " + parts[2] + ".");
+                                System.out.println("[REJECTED][" + getBiddersName() + "] Your bid of " + bidAmount + " for object " + objId + " is too low.");
                             }
                             break;
 
@@ -116,27 +125,35 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                         case "AUCTION_FINISHED":
                             // ελέγχουμε αν κερδίσαμε εμείς την δημοπρασία, και αν ναι, ξεκινάμε το B2B
                             String winnerToken = parts[1];
-                            String objectId = parts[2];
-                            
+                            String finishedObjectId = parts[2];
+
+                            if (!myBids.contains(finishedObjectId) && !winnerToken.equals(getTokenId())) {
+                                break;
+                            }
+
+                            myBids.remove(finishedObjectId);
+
                             if (winnerToken.equals(getTokenId())) {
-                                System.out.println("[SUCCESS] I WON the auction for " + objectId + "!");
+                                System.out.println("[SUCCESS] I WON the auction for " + finishedObjectId + "!");
                                 Random r = new Random();
                                 double choice = r.nextDouble();
                                 if (choice < 0.3){
                                     System.out.println("["+ getBiddersName() +"] I don't want this shit");
-                                    out.println("CANCEL_BID|"+tokenId+"|"+objectId);
+                                    out.println("CANCEL_BID|"+tokenId+"|"+finishedObjectId);
                                 } else {
-                                    out.println("ACK|"+tokenId+"|"+objectId);
+                                    out.println("ACK|"+tokenId+"|"+finishedObjectId);
                                     String sellerIp = parts[3];
                                     int sellerPort = Integer.parseInt(parts[4]);
-                                    startTransactionAsBuyer(objectId, sellerIp, sellerPort);
+                                    startTransactionAsBuyer(finishedObjectId, sellerIp, sellerPort);
 
                                 }
                                 
                             }
 
                             // Σταματαμε το πρόγραμμα μετά απο ορισμένα Auction
-                            auctionsSeen++;
+                            if (myBids.contains(finishedObjectId) || winnerToken.equals(getTokenId())) {
+                                auctionsSeen++;
+                            }
                             if (auctionsSeen >= 2) {
                                 System.out.println("[Bidder] " + getBiddersName() + " is exiting...");
                                 logout();
@@ -396,26 +413,32 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
         if (coinToss < 0.6) {
             System.out.println("[Bidder] " + this.biddersName + " is interested for object " + auctionObjectId + ". Requesting details from Auction server...");
             // Λέμε στον Auction server να μας στείλει όλες τις πληροφορίες του συγκεκριμένου object
-            out.println("GET_AUCTION_DETAILS|" + this.tokenId);
+            out.println("GET_AUCTION_DETAILS|" + auctionObjectId);
         } else {
             System.out.println("[Bidder] " + this.biddersName + " is not interested for object " + auctionObjectId + ".");
         }
-
     }
 
     //Receives the current auction details from the Auction Server. Automatically calculates a new bid based on the required formula. Sends the bid to the Server using the "PLACE_BID" protocol.
-    private void handleAuctionDetails(String auctionBiddersTokenId, double auctionObjectHighestBid, long auctionTimeLeft) {
-        System.out.println("[Bidder] " + this.biddersName + " received all the details of auction object (Seller: " 
-        + auctionBiddersTokenId + ", Highest bid: " + auctionObjectHighestBid + ", Time left: " + auctionTimeLeft + ").");
+    private void handleAuctionDetails(String objectId, String auctionBiddersTokenId, double auctionObjectHighestBid, long auctionTimeLeft) {
+        if (auctionBiddersTokenId.equals(this.tokenId)) {
+            System.out.println("[Bidder][" + getBiddersName() + "] This is my item (" + objectId + "), skipping bid.");
+            return;
+        }
+
+        System.out.println("[Bidder] " + this.biddersName + " received all the details of auction object " + objectId + " (Seller: "
+                + auctionBiddersTokenId + ", Highest bid: " + auctionObjectHighestBid + ", Time left: " + auctionTimeLeft + ").");
 
         double randVal = new Random().nextDouble();
-        double myNewBid = auctionObjectHighestBid * (1 + (randVal / 10.0));
-    
+        double myNewBid = auctionObjectHighestBid * (1 + (randVal / 10.0)); // [cite: 59]
+
         myNewBid = Math.round(myNewBid * 100.0) / 100.0;
 
-        System.out.println("[Bidder] " + this.biddersName + " placing bid: " + myNewBid);
-    
-        out.println("PLACE_BID|" + this.tokenId + "|" + myNewBid);
+        System.out.println("[Bidder] " + this.biddersName + " placing bid for " + objectId + ": " + myNewBid);
+
+        out.println("PLACE_BID|" + this.tokenId + "|" + objectId + "|" + myNewBid); //
+
+        myBids.add(objectId);
     }
 
     private void startTransactionAsBuyer(String objectId, String sellerIp, int sellerPort) {
