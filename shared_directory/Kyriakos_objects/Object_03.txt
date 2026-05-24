@@ -1,1 +1,0 @@
-object_id: Object_03; description: Description for Object_03; start_bid: 71.6; auction_duration: 66;

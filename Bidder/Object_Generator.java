@@ -35,12 +35,12 @@ public class Object_Generator extends Thread {
             try {
                 if (!Files.exists(subFolderPath)) { // Ελέγχουμε αν υπάρχει ήδη τέτοιος φάκελος στο συγκεκριμένο path
                     Files.createDirectories(subFolderPath);
-                    System.out.println("[Object Generator] Created folder: " + subFolderName + " inside folder: "+ mainFolderName + ".");
+                    System.out.println("[Bidder][Object Generator] Created folder: " + subFolderName + " inside folder: "+ mainFolderName + ".");
                 }
                 folderCreated = true; // Αν έχει φτάσει εδώ το Thread σημαίνει ότι είτε υπάρχει ήδη ο φάκελος, είτε ότι φτίαχτηκε με επιτυχία 
 
             } catch (IOException e) {
-                System.err.println("[Object Generator] Failed to create subfolder for Bidder: " + bidder.getBiddersName() + ".");
+                System.err.println("[Bidder][Object Generator] Failed to create subfolder for Bidder: " + bidder.getBiddersName() + ".");
                 
                 // «Κοιμίζουμε» το Thread και ξαναπροσπαθούμε
                 try {
@@ -65,12 +65,12 @@ public class Object_Generator extends Thread {
                 createObject(subFolderPath, objectCount, random);
 
             } catch (InterruptedException ie) {
-                System.err.println("[Object Generator] The Object Generator was interrupted.");
+                System.err.println("[Bidder][Object Generator] The Object Generator was interrupted.");
                 Thread.currentThread().interrupt(); // Γινεται interrupt συνήθως από το κύριο πρόγραμμα
                 break;
 
             } catch (IOException ioe) {
-                System.err.println("[Object Generator] Failed to create file in folder. Details: " + ioe.getMessage());
+                System.err.println("[Bidder][Object Generator] Failed to create file in folder. Details: " + ioe.getMessage());
             }
 
         }

@@ -18,8 +18,9 @@ public class Bidder_Producer { // Παράγει στην εκκίνηση το�
                 try {
                     Bidder bidder = new Bidder(port, username, "password1234");
                     bidder.startBidder();
+                    System.out.println("[Bidder_Producer] Started Bidder " + username + " at port " + port);
                 } catch (Exception e) {
-                    System.err.println("Failed to start bidder " + username + " on port " + port);
+                    System.err.println("[Bidder_Producer] Failed to start bidder " + username + " on port " + port);
                     e.printStackTrace();
                 }
             }).start();

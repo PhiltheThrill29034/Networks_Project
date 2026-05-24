@@ -1,4 +1,4 @@
-package server;
+package Auction;
 
 public class ActivePeer {
     private String username;
