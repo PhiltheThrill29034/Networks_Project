@@ -127,18 +127,20 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                             String winnerToken = parts[1];
                             String finishedObjectId = parts[2];
 
-                            if (!myBids.contains(finishedObjectId) && !winnerToken.equals(getTokenId())) {
+                            if (!myBids.contains(finishedObjectId)) {
                                 break;
                             }
-
-                            myBids.remove(finishedObjectId);
+                        
+                            // Σταματαμε το πρόγραμμα μετά απο ορισμένα Auction
+                            auctionsSeen++;
+                            System.out.println("[Bidder]["+ getBiddersName() +"] I have now seen " + auctionsSeen + " auctions");
 
                             if (winnerToken.equals(getTokenId())) {
-                                System.out.println("[SUCCESS] I WON the auction for " + finishedObjectId + "!");
+                                System.out.println("[Bidder]["+ getBiddersName() +"] I WON the auction for " + finishedObjectId + "!");
                                 Random r = new Random();
                                 double choice = r.nextDouble();
                                 if (choice < 0.3){
-                                    System.out.println("["+ getBiddersName() +"] I don't want this shit");
+                                    System.out.println("[Bidder]["+ getBiddersName() +"] I don't want this shit");
                                     out.println("CANCEL_BID|"+tokenId+"|"+finishedObjectId);
                                 } else {
                                     out.println("ACK|"+tokenId+"|"+finishedObjectId);
@@ -149,11 +151,10 @@ public class Bidder { // Το αρχείο που τρέχουμε για να �
                                 }
                                 
                             }
+                        
+                            // Αφαιρούμε το ObjectId αφόυ ελέγξουμε ότι υπάρχει στο myBids
+                            myBids.remove(finishedObjectId);
 
-                            // Σταματαμε το πρόγραμμα μετά απο ορισμένα Auction
-                            if (myBids.contains(finishedObjectId) || winnerToken.equals(getTokenId())) {
-                                auctionsSeen++;
-                            }
                             if (auctionsSeen >= 2) {
                                 System.out.println("[Bidder] " + getBiddersName() + " is exiting...");
                                 logout();
