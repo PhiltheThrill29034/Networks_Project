@@ -184,7 +184,7 @@ public class B2B_Connection_Thread extends Thread { // Τα Thread που εξη
                     DatagramPacket packetToSendToBuyer = new DatagramPacket(subPacket, subPacket.length, buyerAddress, buyerPort);
                     buyerSocket.send(packetToSendToBuyer);
 
-                    System.out.println("[B2B Connection Thread/performGoBackN] " + this.biddersName + 
+                    System.out.println("[B2B Connection Thread][performGoBackN] " + this.biddersName + 
                                        " sent packet with sequence number " + nextSequenceNumber + " to buyer");
                     // Προχωράμε στο επόμενο πακέτο
                     nextSequenceNumber++;
@@ -205,7 +205,7 @@ public class B2B_Connection_Thread extends Thread { // Τα Thread που εξη
                     ByteBuffer ackBuffer = ByteBuffer.wrap(ackPacket.getData(), 0, ackPacket.getLength());
                     int ackNumber = ackBuffer.getInt();
 
-                    System.out.println("[B2B Connection Thread/performGoBackN] " + this.biddersName + 
+                    System.out.println("[B2B Connection Thread][performGoBackN] " + this.biddersName + 
                                        " received ACK for sequence number " + ackNumber + " from buyer");
 
                     // Ελέγχουμε αν στάλθηκε το τερματικό πακέτο με sequence number -1. Αν ναι, θέτουμε το
@@ -225,14 +225,14 @@ public class B2B_Connection_Thread extends Thread { // Τα Thread που εξη
                     // Αν έχει γίνει η υπέρβαση, τερματίζουμε την επικοινωνία
                     timeoutRetries++;
                     if (timeoutRetries > MAX_TIMEOUT_RETRIES) {
-                        System.out.println("[B2B Connection Thread/performGoBackN] Max continuous timeout reached" +
+                        System.out.println("[B2B Connection Thread][performGoBackN] Max continuous timeout reached" +
                                            " for " + this.biddersName + ". Buyer is down or final ACK was lost." + 
                                            " Exiting...");
                         return false;
                     }
 
                     // Δεν λάβαμε κάποιο ACK από τον buyer μέσα στο χρονικό όριο των 2 δευτερολέπτων
-                    System.out.println("[B2B Connection Thread/performGoBackN] Timeout! Resending " + this.biddersName + 
+                    System.out.println("[B2B Connection Thread][performGoBackN] Timeout! Resending " + this.biddersName + 
                                        " packets from sequence number " + firstInLineUnconfirmedReceivedPacket);
                     // Θέτουμε το επόμενο πακέτο προς αποστολή να είναι το πρώτο από αυτά που δεν έχουν επιβεβαιωθεί,
                     // ώστε να ξανασταλθούν
@@ -246,7 +246,7 @@ public class B2B_Connection_Thread extends Thread { // Τα Thread που εξη
             return true;
 
         } catch (IOException e) {
-            System.out.println("[B2B Connection Thread] Something failed during " + this.biddersName + 
+            System.out.println("[B2B Connection Thread][performGoBackN] Something failed during " + this.biddersName + 
                                "'s connection with the buyer. Details: ");
             e.printStackTrace();
             return false;

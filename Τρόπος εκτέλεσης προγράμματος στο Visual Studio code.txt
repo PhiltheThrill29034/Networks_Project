@@ -1,8 +1,8 @@
 server
 
-COMPILE: javac -d target/classes server/*
+COMPILE: javac -d target/classes Auction/* shared/models/*
 
-EXECUTE: java -cp target/classes server.AuctionServer
+EXECUTE: java -cp target/classes Auction.AuctionServer
 
 
 

@@ -1,4 +1,4 @@
-package server;
+package Auction;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -40,7 +40,7 @@ public class ClientHandler implements Runnable {
             }
 
         } catch (IOException e){
-            System.err.println("[ERROR] Lost connection to client.");
+            System.err.println("[AuctionServer][ClientHandler][ERROR] Lost connection to client.");
         } finally {
             if (writer != null) {
                 server.removeClientWriters(writer);
@@ -96,7 +96,7 @@ public class ClientHandler implements Runnable {
         String password = parts[2]; 
         UserProfile newUser = new UserProfile(username, password);
         if (server.registerUser(newUser)) {
-            System.out.println("[AUCTION_SERVER] " + username + " registered successfully.");
+            System.out.println("[AuctionServer][ClientHandler][handleRegister] " + username + " registered successfully.");
             return "REGISTER_OK|Welcome to the auction";
         } else {
             return "[ERROR]|Username already taken";
@@ -128,7 +128,7 @@ public class ClientHandler implements Runnable {
             );
             if (!server.isLoggedIn(username)){
                 server.addActiveSession(newSession);            
-                System.out.println("[AUCTION_SERVER] " + username + " logged in successfully.");
+                System.out.println("[AuctionServer][ClientHandler][handleLogin] " + username + " logged in successfully.");
                 return "LOGIN_OK|"+tokenId;                
             } else {
                 return "[ERROR]|Already logged in";
@@ -174,7 +174,7 @@ public class ClientHandler implements Runnable {
     private String handleLogout(String[] parts) {
         //request format: LOGOUT|tokenid
         if (parts.length<2){
-            throw new IllegalArgumentException("[ERROR}|Invalid command format for LOGOUT, missing token ID");
+            throw new IllegalArgumentException("[ERROR]|Invalid command format for LOGOUT, missing token ID");
         }
         String tokenId = parts[1];
         ActivePeer peer = server.getActivePeer(tokenId);
@@ -183,7 +183,7 @@ public class ClientHandler implements Runnable {
         }
 
         server.removePeer(tokenId);
-        System.out.println("[AUCTION_SERVER] " + tokenId + " registered successfully.");
+        System.out.println("[AuctionServer][ClientHandler][handleLogout] " + tokenId + " registered successfully.");
         return "LOGOUT_OK|Logged out successfully";
     }
 }

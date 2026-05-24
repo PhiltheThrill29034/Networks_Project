@@ -1,6 +1,6 @@
-Η εφαρμογή είναι χωρισμένη σε δύο κύρια πακέτα (packages): server και Bidder.
+Η εφαρμογή είναι χωρισμένη σε 2 κύρια πακέτα (packages): Auction και Bidder, και σε 1 συμπληρωματικό πακέτο: shared/models.
 
-Πακέτο server
+Πακέτο Auction
 	AuctionServer.java: Η κεντρική κλάση (entry point). Διαχειρίζεται το socket για τις συνδέσεις, την ουρά δημοπρασιών και τις πληροφορίες ιδιοκτησίας αντικειμένων.
 
 	ClientHandler.java: Αναλαμβάνει την επικοινωνία με κάθε συνδεδεμένο Bidder μέσω threads. Επεξεργάζεται τα μηνύματα (REGISTER, LOGIN, PLACE_BID κ.λπ.).
@@ -9,6 +9,9 @@
 
 	UserProfile.java: Αποθηκεύει μόνιμα δεδομένα χρήστη (username, password, ιστορικό).
 
+	ActiveAuctionSlot.java: Αποθηκεύει τα δεδομένα ενεργών δημοπρασιών σε slot (item, auctionEndTime, currentHighestBidderToken)
+
+
 Πακέτο Bidder
 	Bidder.java: Η κεντρική κλάση του πελάτη. Περιλαμβάνει τη λογική της συμμετοχής στη δημοπρασία και το P2P server-listener.
 
@@ -16,4 +19,11 @@
 
 	Object_Generator.java: Προσομοιώνει τη δημιουργία αντικειμένων προς δημοπρασία, δημιουργώντας τοπικά αρχεία.
 
-	B2B_Server.java, B2B_Server_Thread.java, B2B_Connection_Thread.java: Υλοποιούν τον P2P server που τρέχει ο κάθε Bidder, επιτρέποντας την αποστολή των αρχείων των αντικειμένων στον 								             νικητή της δημοπρασίας.
+	B2B_Server.java, B2B_Server_Thread.java, B2B_Connection_Thread.java: Υλοποιούν τον B2B server που τρέχει ο κάθε Bidder, επιτρέποντας την αποστολή των αρχείων των αντικειμένων στον 								             νικητή της δημοπρασίας.
+
+
+Πακέτο shared/models
+	AuctionItem.java: Σε αυτό αντιστοιχείται το κάθε object του κάθε Bidder, έτσι ώστε να διατεθεί για δημοπρασία
+
+	AuctionState.java: Χαρακτηρίζει τη κατάσταση κάθε δημοπρασίας
+

@@ -1,7 +1,6 @@
-package server;
+package Auction;
 
 import shared.models.AuctionItem;
-import shared.models.AuctionState;
 
 public class ActiveAuctionSlot {
     public AuctionItem item;
