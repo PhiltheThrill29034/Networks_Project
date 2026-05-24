@@ -1,4 +1,9 @@
-public static class ActiveAuctionSlot {
+package server;
+
+import shared.models.AuctionItem;
+import shared.models.AuctionState;
+
+public class ActiveAuctionSlot {
     public AuctionItem item;
     public long auctionEndTime;
     public String currentHighestBidderToken;
