@@ -126,7 +126,7 @@ public class AuctionServer{
                 synchronized (this) { //Prevents other threads from modifying the auction state while we are checking it.
                     //If there is no active auction, we check if there are pending auctions in the queue. If yes, we start the next one.
                     if (activeAuctions.size() < 2 && !auctionQueue.isEmpty()) {
-                        AuctionItem selectedItem = auctionQueue.poll();
+                        AuctionItem selectedItem = selectNextAuctionItem();
                         if (selectedItem != null) {
                             selectedItem.setState(AuctionState.RUNNING);
                             ActiveAuctionSlot newSlot = new ActiveAuctionSlot(selectedItem);
@@ -159,6 +159,43 @@ public class AuctionServer{
                 try { Thread.sleep(1000); } catch (InterruptedException e) { break; }
             }
         }).start();
+    }
+
+    private AuctionItem selectNextAuctionItem() {
+        AuctionItem firstItem = auctionQueue.peek();
+        if (firstItem == null) return null;
+
+        AuctionItem secondItem = null;
+        int index = 0;
+        for (AuctionItem item : auctionQueue) {
+            if (index == 1) {
+                secondItem = item;
+                break;
+            }
+            index++;
+        }
+
+        if (secondItem == null) {
+            return auctionQueue.poll();
+        }
+
+        ActivePeer firstSeller  = activeSessions.get(firstItem.getSellerTokenId());
+        ActivePeer secondSeller = activeSessions.get(secondItem.getSellerTokenId());
+
+        double firstRep  = (firstSeller  != null) ? firstSeller.getReputation()  : 0.0;
+        double secondRep = (secondSeller != null) ? secondSeller.getReputation() : 0.0;
+
+        System.out.println("[AUCTION_SERVER] Queue selection — item1: " + firstItem.getObjectId()
+                + " (rep=" + firstRep + ") vs item2: " + secondItem.getObjectId()
+                + " (rep=" + secondRep + ")");
+
+        if (firstRep < secondRep) {
+            System.out.println("[AUCTION_SERVER] Skipping " + firstItem.getObjectId()
+                    + " in favour of higher-reputation seller: " + secondItem.getObjectId());
+            auctionQueue.remove(secondItem);
+            return secondItem;
+        }
+        return auctionQueue.poll();
     }
 
     //Finalizes the current auction by resetting the auction state for the next auction, updating the winner with the buyer's port and announcing it.
